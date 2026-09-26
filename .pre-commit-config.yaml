@@ -1,0 +1,39 @@
+default_install_hook_types: [pre-commit, pre-push]
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.0
+    hooks:
+      - id: ruff-check
+        args:
+          - --fix
+      - id: ruff-format
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-json
+        exclude: ^\.vscode/
+      - id: check-yaml
+      - id: check-toml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        exclude: \.ambr$
+      - id: check-executables-have-shebangs
+      - id: check-added-large-files
+        exclude: ^uv\.lock$
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: uv run --no-sync mypy custom_components/fglair_local
+        language: system
+        types: [python]
+        pass_filenames: false
+      # Too slow for every commit; CI runs it with --hook-stage manual.
+      - id: pytest
+        name: pytest
+        entry: uv run --no-sync pytest --cov=custom_components/fglair_local
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-push, manual]

@@ -1,0 +1,63 @@
+{
+  "version": "2.0.0",
+  "inputs": [
+    {
+      "id": "bumpType",
+      "type": "pickString",
+      "description": "Version part to bump",
+      "options": [
+        "patch",
+        "minor",
+        "major"
+      ],
+      "default": "patch"
+    }
+  ],
+  "tasks": [
+    {
+      "label": "Release: Bump Version & Tag",
+      "detail": "Bumps pyproject.toml, uv.lock and manifest.json, commits chore(release), and creates the vX.Y.Z tag locally.",
+      "type": "shell",
+      "command": "./script/release.sh ${input:bumpType}",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Release: Push Tags to Origin",
+      "detail": "Pushes the release commit and its tag, which triggers the Release workflow.",
+      "type": "shell",
+      "command": "git push --follow-tags origin main",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Test",
+      "detail": "Runs the integration test suite.",
+      "type": "shell",
+      "command": "uv run pytest",
+      "group": "test",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Prek",
+      "detail": "Runs every hook, tests included, the way CI does.",
+      "type": "shell",
+      "command": "uv run prek run --all-files --hook-stage manual",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    }
+  ]
+}

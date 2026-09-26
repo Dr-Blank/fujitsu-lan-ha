@@ -1,0 +1,28 @@
+{
+  "domain": "fglair_local",
+  "name": "Fujitsu FGLair Local",
+  "codeowners": [
+    "@Dr-Blank"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "http",
+    "network"
+  ],
+  "dhcp": [
+    {
+      "hostname": "ap-wf*"
+    }
+  ],
+  "documentation": "https://github.com/Dr-Blank/fujitsu-lan-ha",
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/Dr-Blank/fujitsu-lan-ha/issues",
+  "loggers": [
+    "aioayla_lan"
+  ],
+  "requirements": [
+    "aioayla-lan==0.1.0"
+  ],
+  "version": "0.1.0"
+}

@@ -1,0 +1,40 @@
+# serializer version: 1
+# name: test_diagnostics
+  dict({
+    'available': True,
+    'connected': True,
+    'entry_data': dict({
+      'callback_host': '**REDACTED**',
+      'callback_port': 8123,
+      'dsn': '**REDACTED**',
+      'host': '**REDACTED**',
+      'lanip_key': '**REDACTED**',
+      'lanip_key_id': 1234,
+    }),
+    'seconds_pending': 5.0,
+    'seconds_since_seen': 5.0,
+    'values': dict({
+      'adjust_temperature': 240,
+      'af_horizontal_direction': 5,
+      'af_horizontal_num_dir': 21,
+      'af_horizontal_swing': 0,
+      'af_vertical_direction': 1,
+      'af_vertical_num_dir': 4,
+      'af_vertical_swing': 1,
+      'anti_freeze': 65535,
+      'device_capabilities': 229375,
+      'display_temperature': 7850,
+      'economy_mode': 0,
+      'error_code': 0,
+      'fan_speed': 4,
+      'filter_sign_reset': 0,
+      'human_det': 1,
+      'min_heat': 0,
+      'operation_mode': 3,
+      'operation_source_id': 2,
+      'outdoor_low_noise': 0,
+      'outdoor_temperature': 8700,
+      'powerful_mode': 0,
+    }),
+  })
+# ---

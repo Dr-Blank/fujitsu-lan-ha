@@ -1,0 +1,173 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
+      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+      "cloud_error": "Could not reach the FGLair cloud. Try again later.",
+      "invalid_key": "The air conditioner rejected the stored LAN key. Remove the unit and add it again to fetch the current key.",
+      "lan_disabled": "The FGLair cloud reports local (LAN) control disabled for this unit, so it cannot be controlled locally.",
+      "no_devices": "No air conditioners that are not already set up were found on this FGLair account.",
+      "not_on_account": "The discovered air conditioner is not on this FGLair account. Sign in with the account the unit is registered to, or use its LAN key instead.",
+      "reconfigure_successful": "[%key:common::config_flow::abort::reconfigure_successful%]"
+    },
+    "error": {
+      "cannot_connect": "The air conditioner did not answer at this address. Check the IP address and that the unit is powered and on Wi-Fi.",
+      "cloud_error": "Could not reach the FGLair cloud. Try again later.",
+      "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
+      "invalid_ip": "Enter an IPv4 or IPv6 address.",
+      "invalid_key": "The air conditioner answered but rejected this LAN key. Check the key, or sign in to FGLair to fetch the current one.",
+      "key_required": "Enter the LAN key.",
+      "https_only": "Home Assistant serves HTTPS, but the air conditioner can only connect over plain HTTP. Enter the address and port of a plain-HTTP reverse proxy in front of Home Assistant.",
+      "no_address": "The FGLair cloud does not know this unit's local address. Enter its IP address.",
+      "no_callback": "The air conditioner accepted the request but never connected back to Home Assistant at {callback}. Check the address and port, and that no firewall blocks the port.",
+      "not_ayla": "The device at this address is not an FGLair air conditioner.",
+      "callback_rejected": "The air conditioner refused to connect to Home Assistant at {callback}, which was detected automatically. It only connects to addresses on its own network. If Home Assistant runs in a container, this is the container's internal address: enter the host machine's LAN address instead."
+    },
+    "progress": {
+      "verify": "Connecting to the air conditioner at {host} and waiting for it to connect back to Home Assistant at {callback}. This takes up to 30 seconds. Any other local controller of this unit, such as the AirCon add-on, is disconnected."
+    },
+    "step": {
+      "user": {
+        "title": "Add a Fujitsu air conditioner",
+        "description": "Home Assistant controls the unit directly over your network using its LAN key, a per-unit secret held by the FGLair cloud. Choose how to get the key.",
+        "menu_options": {
+          "cloud": "Sign in to FGLair",
+          "local": "I have the LAN key"
+        },
+        "menu_option_descriptions": {
+          "cloud": "Easiest. Sign in with your FGLair app account once. Home Assistant fetches each unit's LAN key and address, then never talks to the cloud again. Your password is not stored.",
+          "local": "For units whose LAN key you saved earlier, for example from a previous install or a key-fetch script. Nothing leaves your network. You need the unit's IP address and its LAN key."
+        }
+      },
+      "discovery_confirm": {
+        "title": "Air conditioner found",
+        "description": "Found a Fujitsu air conditioner at {host} (serial {dsn}). To control it, Home Assistant needs its LAN key, a per-unit secret held by the FGLair cloud. Choose how to get the key.",
+        "menu_options": {
+          "cloud": "Sign in to FGLair",
+          "local": "I have the LAN key"
+        },
+        "menu_option_descriptions": {
+          "cloud": "Easiest. Sign in with your FGLair app account once. Home Assistant fetches each unit's LAN key and address, then never talks to the cloud again. Your password is not stored.",
+          "local": "For units whose LAN key you saved earlier, for example from a previous install or a key-fetch script. Nothing leaves your network. You need the unit's IP address and its LAN key."
+        }
+      },
+      "cloud": {
+        "title": "Sign in to FGLair",
+        "description": "Use the email and password of the FGLair app account the air conditioner is registered to. They are used once to fetch the unit's LAN key and are not stored.",
+        "data": {
+          "email": "[%key:common::config_flow::data::email%]",
+          "password": "[%key:common::config_flow::data::password%]",
+          "region": "Region"
+        },
+        "data_description": {
+          "email": "Email address of your FGLair app account.",
+          "password": "Password of your FGLair app account.",
+          "region": "Region of the FGLair app you signed up with."
+        }
+      },
+      "pick_device": {
+        "title": "Choose an air conditioner",
+        "data": {
+          "device": "Air conditioner"
+        },
+        "data_description": {
+          "device": "Air conditioner on your FGLair account to add."
+        }
+      },
+      "local": {
+        "title": "Enter the LAN key",
+        "description": "Enter the unit's IP address and the LAN key you saved earlier. The serial number and key ID are read from the unit.",
+        "data": {
+          "host": "Air conditioner IP address",
+          "lanip_key": "LAN key"
+        },
+        "data_description": {
+          "host": "IP address of the air conditioner on your network (not Home Assistant's), for example as shown in your router's device list. Give it a fixed address in your router so it does not change.",
+          "lanip_key": "The unit's LAN key (`lanip_key`). It grants full local control of the unit, so keep it private."
+        }
+      },
+      "callback": {
+        "title": "How does the air conditioner reach Home Assistant?",
+        "description": "The air conditioner at {host} opens its own connection back to Home Assistant, so it needs an address and port it can reach on your network, usually the LAN address of the machine running Home Assistant. If Home Assistant runs in a container, use the host machine's LAN address and the port published for Home Assistant. The unit only speaks plain HTTP, so the port must serve Home Assistant without TLS.\n\nTip: set **Local network** under Settings > System > Network to `http://ADDRESS:PORT` and new units pick it up automatically.",
+        "data": {
+          "callback_host": "Home Assistant address",
+          "callback_port": "Home Assistant port"
+        },
+        "data_description": {
+          "callback_host": "IP address of Home Assistant as the air conditioner reaches it.",
+          "callback_port": "Port of Home Assistant's web server as the air conditioner reaches it."
+        }
+      }
+    }
+  },
+  "entity": {
+    "button": {
+      "refresh": {
+        "name": "Re-read all properties"
+      }
+    },
+    "climate": {
+      "air_conditioner": {
+        "state_attributes": {
+          "fan_mode": {
+            "state": {
+              "quiet": "Quiet"
+            }
+          },
+          "swing_mode": {
+            "state": {
+              "top": "Top",
+              "upper_middle": "Upper middle",
+              "lower_middle": "Lower middle",
+              "bottom": "Bottom"
+            }
+          },
+          "swing_horizontal_mode": {
+            "state": {
+              "left": "Left",
+              "left_center": "Left of center",
+              "center": "Center",
+              "right_center": "Right of center",
+              "right": "Right"
+            }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "outdoor_temperature": {
+        "name": "Outdoor temperature"
+      }
+    },
+    "switch": {
+      "economy": {
+        "name": "Economy"
+      },
+      "powerful": {
+        "name": "Powerful"
+      },
+      "outdoor_low_noise": {
+        "name": "Outdoor unit low noise"
+      },
+      "energy_saving_fan": {
+        "name": "Energy saving fan"
+      },
+      "human_sensor": {
+        "name": "Human sensor"
+      },
+      "wifi_led": {
+        "name": "Wi-Fi LED"
+      }
+    }
+  },
+  "selector": {
+    "region": {
+      "options": {
+        "us": "Americas, Asia and Oceania",
+        "eu": "Europe",
+        "cn": "China"
+      }
+    }
+  }
+}
