@@ -39,6 +39,7 @@ from custom_components.fglair_local.const import DOMAIN
 from custom_components.fglair_local.properties import (
     EXTRA_PROPERTIES,
     HORIZONTAL_POSITIONS,
+    NUMBERED_POSITIONS,
     PRIME_PROPERTIES,
     VERTICAL_POSITIONS,
 )
@@ -315,10 +316,25 @@ async def test_swing_axes_offered(
     [
         pytest.param({}, VERTICAL_MODES, id="no_count"),
         pytest.param({"af_vertical_num_dir": 4}, VERTICAL_MODES, id="four"),
-        pytest.param({"af_vertical_num_dir": 3}, VERTICAL_MODES[:5], id="three"),
-        pytest.param({"af_vertical_num_dir": 1}, VERTICAL_MODES[:3], id="one"),
+        pytest.param(
+            {"af_vertical_num_dir": 6},
+            ["on", "off", *(f"position_{n}" for n in range(1, 7))],
+            id="six",
+        ),
+        pytest.param(
+            {"af_vertical_num_dir": 8},
+            ["on", "off", *(f"position_{n}" for n in range(1, 9))],
+            id="eight",
+        ),
+        pytest.param(
+            {"af_vertical_num_dir": 3},
+            ["on", "off", "position_1", "position_2", "position_3"],
+            id="three",
+        ),
+        pytest.param({"af_vertical_num_dir": 1}, ["on", "off", "position_1"], id="one"),
         pytest.param({"af_vertical_num_dir": 0}, VERTICAL_MODES, id="zero"),
-        pytest.param({"af_vertical_num_dir": 5}, VERTICAL_MODES, id="too_many"),
+        pytest.param({"af_vertical_num_dir": -1}, VERTICAL_MODES, id="negative"),
+        pytest.param({"af_vertical_num_dir": 9}, VERTICAL_MODES, id="too_many"),
         pytest.param({"af_vertical_num_dir": 65535}, VERTICAL_MODES, id="sentinel"),
         pytest.param(
             # The horizontal count is not the number of positions.
@@ -334,7 +350,10 @@ async def test_positions_follow_count(
     datapoints: dict[str, int],
     swing_modes: list[str],
 ) -> None:
-    """Vertical positions are trimmed to a plausible count; horizontal ones never."""
+    """Vertical positions are numbered for a plausible count other than 4.
+
+    Horizontal ones never follow a count.
+    """
     await unit.key_exchange()
     await unit.push_all({**CAPABILITIES, **datapoints})
 
@@ -392,6 +411,50 @@ async def test_positions_follow_count(
             "off",
             "right",
             id="beyond_count",
+        ),
+        pytest.param(
+            {
+                "af_vertical_swing": 0,
+                "af_vertical_direction": 6,
+                "af_vertical_num_dir": 6,
+                "af_horizontal_swing": 1,
+            },
+            "position_6",
+            "on",
+            id="held_numbered",
+        ),
+        pytest.param(
+            {
+                "af_vertical_swing": 0,
+                "af_vertical_direction": 1,
+                "af_vertical_num_dir": 8,
+                "af_horizontal_swing": 1,
+            },
+            "position_1",
+            "on",
+            id="held_numbered_first",
+        ),
+        pytest.param(
+            {
+                "af_vertical_swing": 0,
+                "af_vertical_direction": 7,
+                "af_vertical_num_dir": 6,
+                "af_horizontal_swing": 1,
+            },
+            "off",
+            "on",
+            id="beyond_numbered_count",
+        ),
+        pytest.param(
+            {
+                "af_vertical_swing": 0,
+                "af_vertical_direction": 4,
+                "af_vertical_num_dir": 4,
+                "af_horizontal_swing": 1,
+            },
+            "bottom",
+            "on",
+            id="held_named_with_count",
         ),
         pytest.param(
             {
@@ -506,6 +569,40 @@ async def test_swing_state(
             id="vertical_position",
         ),
         pytest.param(
+            {"af_vertical_swing": 1, "af_vertical_num_dir": 6},
+            SERVICE_SET_SWING_MODE,
+            {ATTR_SWING_MODE: "position_5"},
+            [
+                ("af_vertical_swing", 0, "boolean"),
+                ("af_vertical_direction", 5, "integer"),
+            ],
+            ATTR_SWING_MODE,
+            "position_5",
+            id="vertical_numbered_position",
+        ),
+        pytest.param(
+            {"af_vertical_swing": 1, "af_vertical_num_dir": 8},
+            SERVICE_SET_SWING_MODE,
+            {ATTR_SWING_MODE: "position_8"},
+            [
+                ("af_vertical_swing", 0, "boolean"),
+                ("af_vertical_direction", 8, "integer"),
+            ],
+            ATTR_SWING_MODE,
+            "position_8",
+            id="vertical_numbered_last",
+        ),
+        pytest.param(
+            {"af_vertical_swing": 1, "af_vertical_num_dir": 6},
+            SERVICE_SET_SWING_MODE,
+            {ATTR_SWING_MODE: "off"},
+            [("af_vertical_swing", 0, "boolean")],
+            ATTR_SWING_MODE,
+            # The unit last reported direction 1.
+            "position_1",
+            id="vertical_off_numbered",
+        ),
+        pytest.param(
             {"af_horizontal_swing": 0},
             SERVICE_SET_SWING_HORIZONTAL_MODE,
             {ATTR_SWING_HORIZONTAL_MODE: "on"},
@@ -598,7 +695,12 @@ async def test_set_swing_mode(
             id="vertical_position_on_horizontal",
         ),
         pytest.param(
-            SERVICE_SET_SWING_MODE, {ATTR_SWING_MODE: "bottom"}, id="beyond_count"
+            SERVICE_SET_SWING_MODE, {ATTR_SWING_MODE: "position_4"}, id="beyond_count"
+        ),
+        pytest.param(
+            SERVICE_SET_SWING_MODE,
+            {ATTR_SWING_MODE: "top"},
+            id="named_position_on_numbered",
         ),
     ],
 )
@@ -622,10 +724,46 @@ async def test_invalid_swing_mode_rejected(
     )
 
 
+async def test_count_read_before_direction(unit: SimulatedUnit) -> None:
+    """A direction past 4 reads as off until the count says it exists."""
+    await unit.key_exchange()
+
+    resources = [read_resource(command) for command in await unit.drain()]
+
+    assert resources.index("property.json?name=af_vertical_num_dir") < (
+        resources.index("property.json?name=af_vertical_direction")
+    )
+
+
+async def test_numbered_position_follows_late_count(
+    hass: HomeAssistant, unit: SimulatedUnit
+) -> None:
+    """A position the count has not yet vouched for shows once the count arrives."""
+    await unit.key_exchange()
+    await unit.push_all(
+        {**CAPABILITIES, "af_vertical_swing": 0, "af_vertical_direction": 6}
+    )
+    state = hass.states.get(CLIMATE_ENTITY_ID)
+    assert state is not None
+    assert state.attributes[ATTR_SWING_MODE] == "off"
+
+    await unit.push("af_vertical_num_dir", 6)
+
+    state = hass.states.get(CLIMATE_ENTITY_ID)
+    assert state is not None
+    assert state.attributes[ATTR_SWING_MODE] == "position_6"
+    assert state.attributes[ATTR_SWING_MODES] == [
+        "on",
+        "off",
+        *NUMBERED_POSITIONS[:6],
+    ]
+
+
 @pytest.mark.parametrize(
     ("attribute", "positions"),
     [
         pytest.param(ATTR_SWING_MODE, VERTICAL_POSITIONS, id="vertical"),
+        pytest.param(ATTR_SWING_MODE, NUMBERED_POSITIONS, id="numbered"),
         pytest.param(ATTR_SWING_HORIZONTAL_MODE, HORIZONTAL_POSITIONS, id="horizontal"),
     ],
 )

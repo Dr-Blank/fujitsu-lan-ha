@@ -31,6 +31,7 @@ from .properties import (
     HORIZONTAL_DIRECTION,
     HORIZONTAL_POSITIONS,
     HORIZONTAL_SWING,
+    NUMBERED_POSITIONS,
     OPERATION_MODE,
     VERTICAL_DIRECTION,
     VERTICAL_NUM_DIR,
@@ -100,6 +101,8 @@ class Louvre:
     off_mode: str
     # Property holding how many positions this model has, when it is truthful.
     count: str | None = None
+    # Offered instead of `positions` for a plausible `count` other than theirs.
+    numbered: tuple[str, ...] = ()
 
 
 VERTICAL = Louvre(
@@ -110,6 +113,7 @@ VERTICAL = Louvre(
     SWING_ON,
     SWING_OFF,
     VERTICAL_NUM_DIR,
+    NUMBERED_POSITIONS,
 )
 HORIZONTAL = Louvre(
     HORIZONTAL_SWING,
@@ -178,9 +182,13 @@ class FglairLocalClimate(FglairLocalEntity, ClimateEntity):
         if louvre.count is None:
             return louvre.positions
         count = self._value(louvre.count)
-        if count is None or not 1 <= count <= len(louvre.positions):
+        if (
+            count is None
+            or count == len(louvre.positions)
+            or not 1 <= count <= len(louvre.numbered)
+        ):
             return louvre.positions
-        return louvre.positions[:count]
+        return louvre.numbered[:count]
 
     def _modes(self, louvre: Louvre) -> list[str] | None:
         if not self._has(louvre):
@@ -207,7 +215,9 @@ class FglairLocalClimate(FglairLocalEntity, ClimateEntity):
             return
         # Swing first: the position is where the louvre should end up.
         self.device.set_property(louvre.swing, 0, notify=False)
-        self.device.set_property(louvre.direction, louvre.positions.index(mode) + 1)
+        self.device.set_property(
+            louvre.direction, self._positions(louvre).index(mode) + 1
+        )
 
     @property
     def swing_modes(self) -> list[str] | None:

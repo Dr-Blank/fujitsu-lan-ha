@@ -32,6 +32,8 @@ POWERFUL_MODE = "powerful_mode"
 # Louvre positions by `af_*_direction` value, from 1. Tested on AP-WF3E; the
 # unit's `af_horizontal_num_dir` (21) is not the position count.
 VERTICAL_POSITIONS = ("top", "upper_middle", "lower_middle", "bottom")
+# Vertical positions for any other count, 1 the highest. ASYG-KMCC reports 6.
+NUMBERED_POSITIONS = tuple(f"position_{n}" for n in range(1, 9))
 HORIZONTAL_POSITIONS = ("left", "left_center", "center", "right_center", "right")
 
 # On/off settings. Tested on AP-WF3E: economy_mode, outdoor_low_noise,
@@ -94,10 +96,11 @@ PRIME_PROPERTIES = (
     FAN_SPEED,
     VERTICAL_SWING,
     HORIZONTAL_SWING,
-    VERTICAL_DIRECTION,
-    HORIZONTAL_DIRECTION,
+    # Before the direction, which reads as off until the count says it exists.
     VERTICAL_NUM_DIR,
     HORIZONTAL_NUM_DIR,
+    VERTICAL_DIRECTION,
+    HORIZONTAL_DIRECTION,
 )
 # Re-read after a write: the unit echoes a write only sometimes, and never what
 # the write changed elsewhere.
