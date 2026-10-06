@@ -28,6 +28,3 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          # The domain is not in home-assistant/brands, which only accepts
-          # integrations shipped with core.
-          ignore: brands
