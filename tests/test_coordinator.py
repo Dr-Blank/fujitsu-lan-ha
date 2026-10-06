@@ -475,6 +475,40 @@ async def test_failed_write_restores_acked_value(
     assert state_of(hass, ECONOMY_ENTITY_ID) == "on"
 
 
+@pytest.mark.parametrize(
+    "ack_status",
+    [pytest.param(200, id="acked"), pytest.param(500, id="rejected")],
+)
+async def test_pushed_value_wins_over_write_in_flight(
+    hass: HomeAssistant,
+    unit: SimulatedUnit,
+    device: FglairLocalDevice,
+    freezer: FrozenDateTimeFactory,
+    ack_status: int,
+) -> None:
+    """The unit's own report replaces the guess, whatever the write's fate.
+
+    The read-back then settles which of the two the unit kept.
+    """
+    await unit.key_exchange()
+    await unit.push("economy_mode", 0)
+    await unit.drain()
+
+    device.set_property("economy_mode", 1)
+    command = await unit.fetch_command()
+    await unit.push("economy_mode", 0)
+    assert state_of(hass, ECONOMY_ENTITY_ID) == "off"
+
+    await unit.ack(command, ack_status)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert state_of(hass, ECONOMY_ENTITY_ID) == "off"
+
+    await advance(hass, freezer, READ_BACK_DELAY)
+    assert [read_resource(command) for command in await unit.drain()] == reads(
+        "economy_mode"
+    )
+
+
 async def test_read_back_is_debounced(
     hass: HomeAssistant,
     unit: SimulatedUnit,

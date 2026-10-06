@@ -2,6 +2,7 @@
 
 from freezegun.api import FrozenDateTimeFactory
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from homeassistant.const import STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
@@ -146,3 +147,19 @@ async def test_raw_sensor_truncates_long_value(
     state = hass.states.get(RAW_ENTITY_ID)
     assert state is not None
     assert state.state == "x" * 255
+
+
+@pytest.mark.usefixtures("entity_registry_enabled_by_default")
+async def test_raw_sensor_unknown_after_session_drop(
+    hass: HomeAssistant, init_integration: MockConfigEntry, unit: SimulatedUnit
+) -> None:
+    """A changeable value is forgotten with the session, so it reads unknown."""
+    await unit.key_exchange()
+    await unit.push("mystery_value", 42)
+
+    init_integration.runtime_data.lan._drop_session()  # noqa: SLF001
+    await unit.key_exchange()
+
+    state = hass.states.get(RAW_ENTITY_ID)
+    assert state is not None
+    assert state.state == STATE_UNKNOWN

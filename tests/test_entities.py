@@ -7,7 +7,7 @@ from pytest_homeassistant_custom_component.common import (
 )
 from syrupy.assertion import SnapshotAssertion
 
-from homeassistant.const import STATE_UNAVAILABLE
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
@@ -151,3 +151,40 @@ async def test_device_name(
     assert device is not None
     assert device.name == name
     assert hass.states.get(entity_id) is not None
+
+
+@pytest.mark.parametrize(("name", "entity_id"), NUMERIC_ENTITIES[:2])
+async def test_value_turning_sentinel_is_unknown(
+    hass: HomeAssistant, unit: SimulatedUnit, name: str, entity_id: str
+) -> None:
+    """An entity stays once created, and reads unknown if the value turns 65535."""
+    await unit.key_exchange()
+    await unit.push(name, 1)
+
+    await unit.push(name, 65535)
+
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == STATE_UNKNOWN
+
+
+async def test_disabled_entity_stops_listening(
+    hass: HomeAssistant,
+    unit: SimulatedUnit,
+    entity_registry: er.EntityRegistry,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An entity the user disables is no longer updated by pushed values."""
+    await unit.key_exchange()
+    await unit.push("economy_mode", 0)
+
+    entity_registry.async_update_entity(
+        ECONOMY_ENTITY_ID, disabled_by=er.RegistryEntryDisabler.USER
+    )
+    await hass.async_block_till_done()
+    assert hass.states.get(ECONOMY_ENTITY_ID) is None
+
+    await unit.push("economy_mode", 1)
+
+    assert hass.states.get(ECONOMY_ENTITY_ID) is None
+    assert "incorrectly being triggered" not in caplog.text

@@ -38,3 +38,21 @@
     }),
   })
 # ---
+# name: test_diagnostics_before_unit_dials_in
+  dict({
+    'available': False,
+    'connected': False,
+    'entry_data': dict({
+      'callback_host': '**REDACTED**',
+      'callback_port': 8123,
+      'dsn': '**REDACTED**',
+      'host': '**REDACTED**',
+      'lanip_key': '**REDACTED**',
+      'lanip_key_id': 1234,
+    }),
+    'seconds_pending': None,
+    'seconds_since_seen': None,
+    'values': dict({
+    }),
+  })
+# ---

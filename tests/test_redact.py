@@ -12,7 +12,11 @@ from homeassistant.data_entry_flow import FlowResultType
 
 from .const import LANIP_KEY
 from custom_components.fglair_local.const import CONF_LANIP_KEY, DOMAIN
-from custom_components.fglair_local.redact import KEY_FILTER, REDACTED
+from custom_components.fglair_local.redact import (
+    KEY_FILTER,
+    REDACTED,
+    redact_key_in_logs,
+)
 
 LOGGERS = ["aioayla_lan.device", "custom_components.fglair_local.coordinator"]
 
@@ -80,3 +84,13 @@ async def test_key_redacted_while_verifying(
 
     assert LANIP_KEY not in caplog.text
     assert f"key is {REDACTED}" in caplog.text
+
+
+def test_empty_key_not_registered(caplog: pytest.LogCaptureFixture) -> None:
+    """An empty key would match between every character of every line."""
+    redact_key_in_logs("")
+
+    logging.getLogger("aioayla_lan.device").warning("session established")
+
+    assert KEY_FILTER.keys == set()
+    assert "session established" in caplog.text

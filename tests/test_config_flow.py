@@ -511,6 +511,24 @@ async def test_local_errors(
     assert result["data"] == _entry_data(LOCAL_HOST)
 
 
+@pytest.mark.usefixtures("mock_source_ip", "mock_lan_register", "mock_wait_verified")
+async def test_local_input_is_trimmed(
+    hass: HomeAssistant, mock_fetch_dsn: AsyncMock
+) -> None:
+    """Whitespace picked up when pasting the address or key is not stored."""
+    result = await _start(hass, "local")
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_HOST: f" {LOCAL_HOST} ", CONF_LANIP_KEY: f"{LANIP_KEY}\n"},
+    )
+    result = await _finish_verify(hass, result)
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"] == _entry_data(LOCAL_HOST)
+    mock_fetch_dsn.assert_awaited_once_with(async_get_clientsession(hass), LOCAL_HOST)
+
+
 @pytest.mark.parametrize(
     ("host", "dsn"),
     [
