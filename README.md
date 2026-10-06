@@ -77,7 +77,7 @@ To change the callback address later, for example after moving Home Assistant to
 ## Entities
 
 - **Climate:** on/off, HVAC mode, target temperature and fan speed (including quiet).
-  - **Vertical louvre** (swing mode): swing, stop, or hold at a fixed step: top, upper middle, lower middle or bottom. Units with fewer steps only show the steps they report.
+  - **Vertical louvre** (swing mode): swing, stop, or hold at a fixed step: top, upper middle, lower middle or bottom. Units that report a different number of steps, up to 8, show them numbered instead, position 1 being the highest.
   - **Horizontal louvre** (horizontal swing mode), on units that have one: swing, stop, or hold at left, left of center, center, right of center or right.
 - **Switches:** economy, powerful, outdoor unit low noise, energy saving fan and human sensor, for the features your unit reports. Other on/off settings the unit reports, such as the Wi-Fi LED, are configuration entities.
 - **Occupancy:** the unit's human sensor.
@@ -97,14 +97,7 @@ To change the callback address later, for example after moving Home Assistant to
 
 Download diagnostics from the device page. They include the unit's last reported values and session state, with the LAN key, serial number and addresses redacted.
 
-For more detail, enable debug logging for the integration from its entry, or add this to `configuration.yaml`:
-
-```yaml
-logger:
-  logs:
-    custom_components.fglair_local: debug
-    aioayla_lan: debug
-```
+For more detail, turn on debug logging and attach the log to your issue. [Debug logs](docs/debug-logs.md) shows how to turn it on, where to find the log, and what to check before posting.
 
 The LAN key grants full local control of the unit. The integration replaces it with `**REDACTED**` in its own and the library's log output, including tracebacks, and in diagnostics. Still check anything you post, such as a `configuration.yaml` or a key-fetch script's output.
 
