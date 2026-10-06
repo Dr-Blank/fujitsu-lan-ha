@@ -3,7 +3,7 @@ name = "fujitsu-lan-ha"
 version = "0.1.0"
 description = "Home Assistant integration for local control of Fujitsu FGLair air conditioners"
 requires-python = ">=3.14.2"
-dependencies = ["aioayla-lan==0.1.0"]
+dependencies = ["aioayla-lan==0.1.1"]
 
 [dependency-groups]
 dev = [
