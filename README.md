@@ -2,7 +2,13 @@
 
 Home Assistant integration that controls Fujitsu air conditioners with an FGLair Wi-Fi adapter directly over your network, using the adapter's Ayla LAN mode. No cloud is used after setup, and state changes are pushed by the unit rather than polled.
 
-Tested on the AP-WF3E adapter. Other FGLair adapters use the same protocol and may work; please open an issue with your model either way.
+## Supported adapters
+
+Tested on the AP-WF3E adapter. Other FGLair Wi-Fi adapters speak the same protocol and should work without changes: the integration reads which modes, fan speeds and louvres your unit has from the unit itself.
+
+If you try it with another adapter, please [open an issue](https://github.com/Dr-Blank/fujitsu-lan-ha/issues) saying whether it works. Include the adapter model (printed on the adapter, for example AP-WF3E or UTY-TFSXF3), your indoor unit model, and the diagnostics file from the device page. Working reports help as much as broken ones.
+
+Only Fujitsu units set up in the FGLair app are supported. Other brands' appliances that also use the Ayla platform use different property names and will not work.
 
 ## Requirements
 
@@ -14,6 +20,8 @@ Tested on the AP-WF3E adapter. Other FGLair adapters use the same protocol and m
 ## Installation
 
 ### HACS (recommended)
+
+[HACS](https://hacs.xyz) (Home Assistant Community Store) installs and updates custom integrations from inside Home Assistant. If **HACS** is not in your sidebar, set it up first by following the [HACS getting started guide](https://hacs.xyz/docs/use/).
 
 This is a custom repository, so HACS has to be told about it once. After that it updates like any other HACS integration.
 
@@ -68,7 +76,9 @@ To change the callback address later, for example after moving Home Assistant to
 
 ## Entities
 
-- **Climate:** on/off, HVAC mode, target temperature, fan speed (including quiet), and vertical and horizontal swing with fixed louvre positions.
+- **Climate:** on/off, HVAC mode, target temperature and fan speed (including quiet).
+  - **Vertical louvre** (swing mode): swing, stop, or hold at a fixed step: top, upper middle, lower middle or bottom. Units with fewer steps only show the steps they report.
+  - **Horizontal louvre** (horizontal swing mode), on units that have one: swing, stop, or hold at left, left of center, center, right of center or right.
 - **Switches:** economy, powerful, outdoor unit low noise, energy saving fan and human sensor, for the features your unit reports. Other on/off settings the unit reports, such as the Wi-Fi LED, are configuration entities.
 - **Occupancy:** the unit's human sensor.
 - **Outdoor temperature:** created once the unit reports a reading.
