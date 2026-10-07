@@ -5,7 +5,6 @@
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
       "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
       "cloud_error": "Could not reach the FGLair cloud. Try again later.",
-      "invalid_key": "The air conditioner rejected the stored LAN key. Remove the unit and add it again to fetch the current key.",
       "lan_disabled": "The FGLair cloud reports local (LAN) control disabled for this unit, so it cannot be controlled locally.",
       "no_devices": "No air conditioners that are not already set up were found on this FGLair account.",
       "not_on_account": "The discovered air conditioner is not on this FGLair account. Sign in with the account the unit is registered to, or use its LAN key instead.",
@@ -22,7 +21,8 @@
       "no_address": "The FGLair cloud does not know this unit's local address. Enter its IP address.",
       "no_callback": "The air conditioner accepted the request but never connected back to Home Assistant at {callback}. Check the address and port, and that no firewall blocks the port.",
       "not_ayla": "The device at this address is not an FGLair air conditioner.",
-      "callback_rejected": "The air conditioner refused to connect to Home Assistant at {callback}, which was detected automatically. It only connects to addresses on its own network. If Home Assistant runs in a container, this is the container's internal address: enter the host machine's LAN address instead."
+      "callback_rejected": "The air conditioner refused to connect to Home Assistant at {callback}, which was detected automatically. It only connects to addresses on its own network. If Home Assistant runs in a container, this is the container's internal address: enter the host machine's LAN address instead.",
+      "wrong_device": "A different air conditioner answered at this address. Enter the address of this unit."
     },
     "progress": {
       "verify": "Connecting to the air conditioner at {host} and waiting for it to connect back to Home Assistant at {callback}. This takes up to 30 seconds. Any other local controller of this unit, such as the AirCon add-on, is disconnected."
@@ -98,6 +98,32 @@
           "callback_host": "IP address of Home Assistant as the air conditioner reaches it.",
           "callback_port": "Port of Home Assistant's web server as the air conditioner reaches it."
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure the air conditioner",
+        "description": "Air conditioner {dsn} at {host}. Choose what to change. The unit is checked with the new settings before they are saved.",
+        "menu_options": {
+          "unit": "Address or LAN key",
+          "cloud": "Fetch the LAN key from FGLair",
+          "callback": "How the unit reaches Home Assistant"
+        },
+        "menu_option_descriptions": {
+          "unit": "The unit's IP address changed, or you have a new LAN key for it.",
+          "cloud": "The unit was re-paired in the FGLair app and has a new LAN key. Sign in once to fetch it.",
+          "callback": "Home Assistant moved to another address or port."
+        }
+      },
+      "unit": {
+        "title": "Address and LAN key",
+        "description": "The serial number at the new address must be {dsn}. Leave the LAN key empty to keep the current one.",
+        "data": {
+          "host": "[%key:config::step::local::data::host%]",
+          "lanip_key": "[%key:config::step::local::data::lanip_key%]"
+        },
+        "data_description": {
+          "host": "[%key:config::step::local::data_description::host%]",
+          "lanip_key": "The unit's new LAN key (`lanip_key`). Leave empty to keep the current one."
+        }
       }
     }
   },
@@ -172,6 +198,12 @@
         "eu": "Europe",
         "cn": "China"
       }
+    }
+  },
+  "issues": {
+    "adapter_unresponsive": {
+      "title": "{name} is not responding",
+      "description": "The {adapter} Wi-Fi adapter of {name} has not answered at {host} for more than 10 minutes. This adapter has been seen to stop answering on the network until the air conditioner was power-cycled.\n\n1. Switch the air conditioner off at the breaker or mains (the remote is not enough), wait 30 seconds and switch it back on.\n2. Wait a minute or two for the adapter to rejoin Wi-Fi. Home Assistant reconnects by itself and this message goes away.\n\nIf the unit still does not come back, check that its IP address is still {host}. Reserve its address in your router so it does not change, or use **Reconfigure** on the integration entry to enter the new one."
     }
   }
 }

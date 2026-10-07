@@ -1,7 +1,7 @@
 """Tests for the Fujitsu FGLair Local config flow."""
 
 import asyncio
-from collections.abc import Generator
+from collections.abc import Awaitable, Callable, Generator
 import json
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -15,6 +15,7 @@ from aioayla_lan import (
     CloudDevice,
     CloudError,
     InvalidKeyError,
+    LanKey,
     NoCallbackError,
     SessionCrypto,
 )
@@ -67,6 +68,8 @@ DISCOVERED_HOST = "192.0.2.20"
 HOST_LAN_IP = "192.0.2.3"
 EMAIL = "user@example.com"
 PASSWORD = "fake-password"
+NEW_LANIP_KEY = "fedcba9876543210fedcba9876543210"
+NEW_LANIP_KEY_ID = 5678
 
 CLOUD_INPUT = {CONF_EMAIL: EMAIL, CONF_PASSWORD: PASSWORD, CONF_REGION: "us"}
 LOCAL_INPUT = {CONF_HOST: LOCAL_HOST, CONF_LANIP_KEY: LANIP_KEY}
@@ -1116,6 +1119,29 @@ async def test_dhcp_cannot_connect(
     assert result["reason"] == "cannot_connect"
 
 
+async def _start_reconfigure(
+    hass: HomeAssistant, entry: MockConfigEntry, menu_option: str
+) -> ConfigFlowResult:
+    result = await entry.start_reconfigure_flow(hass)
+    return await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": menu_option}
+    )
+
+
+async def test_reconfigure_menu(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+) -> None:
+    """Reconfiguring offers the unit's address and key, the cloud, or the callback."""
+    mock_config_entry.add_to_hass(hass)
+
+    result = await mock_config_entry.start_reconfigure_flow(hass)
+
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "reconfigure"
+    assert result["menu_options"] == ["unit", "cloud", "callback"]
+    assert result["description_placeholders"] == {"host": HOST, "dsn": DSN}
+
+
 @pytest.mark.usefixtures("mock_wait_verified")
 async def test_reconfigure(
     hass: HomeAssistant,
@@ -1129,7 +1155,7 @@ async def test_reconfigure(
     # The entry's session holds the unit's slot, so it must be gone first.
     mock_lan_register.side_effect = lambda _: states.append(loaded_entry.state)
 
-    result = await loaded_entry.start_reconfigure_flow(hass)
+    result = await _start_reconfigure(hass, loaded_entry, "callback")
 
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "callback"
@@ -1167,7 +1193,7 @@ async def test_reconfigure_not_loaded(
     """An entry that is not set up is saved and set up."""
     mock_config_entry.add_to_hass(hass)
 
-    result = await mock_config_entry.start_reconfigure_flow(hass)
+    result = await _start_reconfigure(hass, mock_config_entry, "callback")
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {CONF_CALLBACK_HOST: HOST_LAN_IP, CONF_CALLBACK_PORT: CALLBACK_PORT},
@@ -1182,50 +1208,281 @@ async def test_reconfigure_not_loaded(
     assert mock_setup_entry.await_count == 1
 
 
-@pytest.mark.usefixtures("mock_wait_verified")
-async def test_reconfigure_cannot_connect(
-    hass: HomeAssistant,
-    loaded_entry: MockConfigEntry,
-    mock_lan_register: AsyncMock,
-    mock_setup_entry: AsyncMock,
-) -> None:
-    """An unreachable unit ends the flow and the entry comes back unchanged."""
-    mock_lan_register.side_effect = CannotConnectError
-
-    result = await loaded_entry.start_reconfigure_flow(hass)
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        {CONF_CALLBACK_HOST: HOST_LAN_IP, CONF_CALLBACK_PORT: CALLBACK_PORT},
-    )
-    await hass.async_block_till_done()
-
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "cannot_connect"
-    assert loaded_entry.data == ENTRY_DATA
-    assert loaded_entry.state is ConfigEntryState.LOADED
-    assert mock_setup_entry.await_count == 2
-
-
 @pytest.mark.usefixtures("mock_lan_register")
-async def test_reconfigure_invalid_key(
+@pytest.mark.parametrize(
+    ("user_input", "data"),
+    [
+        pytest.param(
+            {CONF_HOST: f" {LOCAL_HOST} ", CONF_LANIP_KEY: f" {NEW_LANIP_KEY}\n"},
+            {CONF_HOST: LOCAL_HOST, CONF_LANIP_KEY: NEW_LANIP_KEY},
+            id="new_host_and_key",
+        ),
+        pytest.param(
+            {CONF_HOST: LOCAL_HOST, CONF_LANIP_KEY: " \n"},
+            {CONF_HOST: LOCAL_HOST},
+            id="blank_key",
+        ),
+        pytest.param({CONF_HOST: LOCAL_HOST}, {CONF_HOST: LOCAL_HOST}, id="no_key"),
+        pytest.param(
+            {CONF_HOST: HOST, CONF_LANIP_KEY: NEW_LANIP_KEY},
+            {CONF_LANIP_KEY: NEW_LANIP_KEY},
+            id="same_host",
+        ),
+    ],
+)
+async def test_reconfigure_unit(
     hass: HomeAssistant,
     loaded_entry: MockConfigEntry,
+    mock_fetch_dsn: AsyncMock,
     mock_wait_verified: AsyncMock,
+    mock_source_ip: AsyncMock,
+    user_input: dict[str, str],
+    data: dict[str, str],
 ) -> None:
-    """A rejected stored key ends the flow, as only the callback is editable."""
-    mock_wait_verified.side_effect = InvalidKeyError
+    """A new address or key is checked with the unit, then saved.
 
-    result = await loaded_entry.start_reconfigure_flow(hass)
+    A blank key keeps the current one, and the callback stays as it was.
+    """
+    mock_wait_verified.return_value = NEW_LANIP_KEY_ID
+    result = await _start_reconfigure(hass, loaded_entry, "unit")
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "unit"
+    assert result["errors"] == {}
+    assert result["description_placeholders"] == {"dsn": DSN}
+    assert _suggested_values(result) == {CONF_HOST: HOST, CONF_LANIP_KEY: None}
+
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        {CONF_CALLBACK_HOST: HOST_LAN_IP, CONF_CALLBACK_PORT: CALLBACK_PORT},
+        result["flow_id"], user_input
     )
     result = await _finish_verify(hass, result)
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "invalid_key"
+    assert result["reason"] == "reconfigure_successful"
+    assert loaded_entry.data == {
+        **ENTRY_DATA,
+        CONF_LANIP_KEY_ID: NEW_LANIP_KEY_ID,
+        **data,
+    }
+    assert loaded_entry.state is ConfigEntryState.LOADED
+    mock_fetch_dsn.assert_awaited_once_with(
+        async_get_clientsession(hass), user_input[CONF_HOST].strip()
+    )
+    mock_source_ip.assert_not_awaited()
+
+
+@pytest.mark.usefixtures("mock_lan_register", "mock_wait_verified")
+@pytest.mark.parametrize(
+    ("user_input", "fetch_dsn", "errors"),
+    [
+        pytest.param(
+            {CONF_HOST: "aircon.local"},
+            {"return_value": DSN},
+            {CONF_HOST: "invalid_ip"},
+            id="hostname",
+        ),
+        pytest.param(
+            {CONF_HOST: LOCAL_HOST},
+            {"side_effect": CannotConnectError},
+            {"base": "cannot_connect"},
+            id="no_answer",
+        ),
+        pytest.param(
+            {CONF_HOST: LOCAL_HOST},
+            {"side_effect": AylaLanError},
+            {"base": "not_ayla"},
+            id="not_ayla",
+        ),
+        pytest.param(
+            {CONF_HOST: LOCAL_HOST},
+            {"return_value": OTHER_DSN},
+            {"base": "wrong_device"},
+            id="wrong_device",
+        ),
+    ],
+)
+async def test_reconfigure_unit_errors(
+    hass: HomeAssistant,
+    loaded_entry: MockConfigEntry,
+    mock_fetch_dsn: AsyncMock,
+    user_input: dict[str, str],
+    fetch_dsn: dict[str, Any],
+    errors: dict[str, str],
+) -> None:
+    """Bad input is refused with the typed address kept, then the flow recovers."""
+    mock_fetch_dsn.configure_mock(**fetch_dsn)
+    result = await _start_reconfigure(hass, loaded_entry, "unit")
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "unit"
+    assert result["errors"] == errors
+    assert _suggested_values(result) == {**user_input, CONF_LANIP_KEY: None}
+    # Nothing is unloaded before the unit is known to be this one.
+    assert loaded_entry.state is ConfigEntryState.LOADED
+
+    mock_fetch_dsn.configure_mock(side_effect=None, return_value=DSN)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_HOST: LOCAL_HOST}
+    )
+    result = await _finish_verify(hass, result)
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert loaded_entry.data == {**ENTRY_DATA, CONF_HOST: LOCAL_HOST}
+
+
+async def test_reconfigure_unit_already_configured(
+    hass: HomeAssistant,
+    loaded_entry: MockConfigEntry,
+    mock_fetch_dsn: AsyncMock,
+) -> None:
+    """An address another entry uses is not taken over."""
+    MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=OTHER_DSN,
+        data=_entry_data(LOCAL_HOST, **{CONF_DSN: OTHER_DSN}),
+    ).add_to_hass(hass)
+    result = await _start_reconfigure(hass, loaded_entry, "unit")
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_HOST: LOCAL_HOST}
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    mock_fetch_dsn.assert_not_awaited()
     assert loaded_entry.data == ENTRY_DATA
+
+
+async def _refused_at_once(
+    hass: HomeAssistant, result: ConfigFlowResult
+) -> ConfigFlowResult:
+    """A refused registration is answered without a progress step."""
+    return result
+
+
+@pytest.mark.usefixtures("mock_fetch_dsn")
+@pytest.mark.parametrize(
+    (
+        "menu_option",
+        "user_input",
+        "register_error",
+        "verify_error",
+        "settle",
+        "error",
+    ),
+    [
+        pytest.param(
+            "unit",
+            {CONF_HOST: LOCAL_HOST},
+            CannotConnectError,
+            None,
+            _refused_at_once,
+            "cannot_connect",
+            id="unit_cannot_connect",
+        ),
+        pytest.param(
+            "callback",
+            {CONF_CALLBACK_HOST: HOST_LAN_IP, CONF_CALLBACK_PORT: CALLBACK_PORT},
+            CannotConnectError,
+            None,
+            _refused_at_once,
+            "cannot_connect",
+            id="callback_cannot_connect",
+        ),
+        pytest.param(
+            "unit",
+            {CONF_HOST: LOCAL_HOST, CONF_LANIP_KEY: NEW_LANIP_KEY},
+            None,
+            InvalidKeyError,
+            _finish_verify,
+            "invalid_key",
+            id="unit_invalid_key",
+        ),
+        pytest.param(
+            "callback",
+            {CONF_CALLBACK_HOST: HOST_LAN_IP, CONF_CALLBACK_PORT: CALLBACK_PORT},
+            None,
+            InvalidKeyError,
+            _finish_verify,
+            "invalid_key",
+            id="callback_invalid_key",
+        ),
+    ],
+)
+async def test_reconfigure_failed_check_returns_to_unit(
+    hass: HomeAssistant,
+    loaded_entry: MockConfigEntry,
+    mock_lan_register: AsyncMock,
+    mock_wait_verified: AsyncMock,
+    menu_option: str,
+    user_input: dict[str, Any],
+    register_error: type[Exception] | None,
+    verify_error: type[Exception] | None,
+    settle: Callable[[HomeAssistant, ConfigFlowResult], Awaitable[ConfigFlowResult]],
+    error: str,
+) -> None:
+    """An unreachable unit or a rejected key asks for the address and key."""
+    mock_lan_register.side_effect = register_error
+    mock_wait_verified.side_effect = verify_error
+    result = await _start_reconfigure(hass, loaded_entry, menu_option)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input
+    )
+    result = await settle(hass, result)
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "unit"
+    assert result["errors"] == {"base": error}
+
+    hass.config_entries.flow.async_abort(result["flow_id"])
+    await hass.async_block_till_done()
+
+    assert loaded_entry.data == ENTRY_DATA
+    assert loaded_entry.state is ConfigEntryState.LOADED
+
+
+@pytest.mark.usefixtures("mock_fetch_dsn", "mock_lan_register")
+@pytest.mark.parametrize(
+    ("retry_key", "saved_key"),
+    [
+        pytest.param(NEW_LANIP_KEY, NEW_LANIP_KEY, id="new_key"),
+        pytest.param("", ENTRY_DATA[CONF_LANIP_KEY], id="blank_keeps_entry_key"),
+    ],
+)
+async def test_reconfigure_unit_retried_after_invalid_key(
+    hass: HomeAssistant,
+    loaded_entry: MockConfigEntry,
+    mock_wait_verified: AsyncMock,
+    retry_key: str,
+    saved_key: str,
+) -> None:
+    """After a rejected key, a blank key falls back to the entry's, not the rejected one."""
+    mock_wait_verified.side_effect = InvalidKeyError
+    result = await _start_reconfigure(hass, loaded_entry, "unit")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_HOST: HOST, CONF_LANIP_KEY: "f" * 32}
+    )
+    result = await _finish_verify(hass, result)
+    assert result["step_id"] == "unit"
+    assert result["errors"] == {"base": "invalid_key"}
+
+    mock_wait_verified.side_effect = None
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_HOST: HOST, CONF_LANIP_KEY: retry_key}
+    )
+    result = await _finish_verify(hass, result)
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert loaded_entry.data == {**ENTRY_DATA, CONF_LANIP_KEY: saved_key}
     assert loaded_entry.state is ConfigEntryState.LOADED
 
 
@@ -1238,7 +1495,7 @@ async def test_reconfigure_closed_after_no_callback(
     """Giving up after a failed check brings the entry back unchanged."""
     mock_wait_verified.side_effect = NoCallbackError
 
-    result = await loaded_entry.start_reconfigure_flow(hass)
+    result = await _start_reconfigure(hass, loaded_entry, "callback")
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {CONF_CALLBACK_HOST: HOST_LAN_IP, CONF_CALLBACK_PORT: CALLBACK_PORT},
@@ -1256,3 +1513,103 @@ async def test_reconfigure_closed_after_no_callback(
 
     assert loaded_entry.data == ENTRY_DATA
     assert loaded_entry.state is ConfigEntryState.LOADED
+
+
+@pytest.mark.usefixtures("mock_lan_register")
+@pytest.mark.parametrize(
+    ("cloud_ip", "saved_host"),
+    [
+        pytest.param(CLOUD_HOST, CLOUD_HOST, id="cloud_address"),
+        pytest.param(None, ENTRY_DATA[CONF_HOST], id="no_cloud_address"),
+    ],
+)
+async def test_reconfigure_cloud(
+    hass: HomeAssistant,
+    loaded_entry: MockConfigEntry,
+    mock_cloud: MagicMock,
+    mock_wait_verified: AsyncMock,
+    mock_source_ip: AsyncMock,
+    cloud_ip: str | None,
+    saved_host: str,
+) -> None:
+    """Signing in fetches the unit's current key, and its address when the cloud knows it."""
+    mock_cloud.list_devices.return_value = [
+        _cloud_device(OTHER_DSN, lan_ip=LOCAL_HOST),
+        _cloud_device(lan_ip=cloud_ip),
+    ]
+    mock_cloud.get_lan_key.return_value = LanKey(NEW_LANIP_KEY, NEW_LANIP_KEY_ID)
+    mock_wait_verified.return_value = NEW_LANIP_KEY_ID
+    result = await _start_reconfigure(hass, loaded_entry, "cloud")
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "cloud"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], CLOUD_INPUT
+    )
+    result = await _finish_verify(hass, result)
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert loaded_entry.data == {
+        **ENTRY_DATA,
+        CONF_HOST: saved_host,
+        CONF_LANIP_KEY: NEW_LANIP_KEY,
+        CONF_LANIP_KEY_ID: NEW_LANIP_KEY_ID,
+    }
+    assert loaded_entry.state is ConfigEntryState.LOADED
+    mock_cloud.get_lan_key.assert_awaited_once_with(DSN)
+    mock_source_ip.assert_not_awaited()
+
+
+@pytest.mark.usefixtures("mock_fetch_dsn")
+async def test_reconfigure_cloud_key_kept_after_cannot_connect(
+    hass: HomeAssistant,
+    loaded_entry: MockConfigEntry,
+    mock_cloud: MagicMock,
+    mock_lan_register: AsyncMock,
+    mock_wait_verified: AsyncMock,
+) -> None:
+    """A fetched key survives a wrong address: a blank key on the unit form keeps it."""
+    mock_cloud.get_lan_key.return_value = LanKey(NEW_LANIP_KEY, NEW_LANIP_KEY_ID)
+    mock_lan_register.side_effect = CannotConnectError
+    mock_wait_verified.return_value = NEW_LANIP_KEY_ID
+    result = await _start_reconfigure(hass, loaded_entry, "cloud")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], CLOUD_INPUT
+    )
+    assert result["step_id"] == "unit"
+    assert result["errors"] == {"base": "cannot_connect"}
+
+    mock_lan_register.side_effect = None
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_HOST: LOCAL_HOST, CONF_LANIP_KEY: ""}
+    )
+    result = await _finish_verify(hass, result)
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert loaded_entry.data == {
+        **ENTRY_DATA,
+        CONF_HOST: LOCAL_HOST,
+        CONF_LANIP_KEY: NEW_LANIP_KEY,
+        CONF_LANIP_KEY_ID: NEW_LANIP_KEY_ID,
+    }
+
+
+async def test_reconfigure_cloud_not_on_account(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry, mock_cloud: MagicMock
+) -> None:
+    """An account without this unit has no key for it."""
+    mock_cloud.list_devices.return_value = [_cloud_device(OTHER_DSN)]
+    result = await _start_reconfigure(hass, loaded_entry, "cloud")
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], CLOUD_INPUT
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "not_on_account"
+    assert loaded_entry.data == ENTRY_DATA
+    mock_cloud.get_lan_key.assert_not_awaited()

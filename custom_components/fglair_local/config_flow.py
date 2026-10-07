@@ -64,6 +64,7 @@ from .views import async_get_server
 
 CONF_DEVICE = "device"
 MENU = ["cloud", "local"]
+RECONFIGURE_MENU = ["unit", "cloud", "callback"]
 
 # Accounts made in the European FGLair app live on the EU cloud.
 EU_COUNTRIES = frozenset(
@@ -179,7 +180,11 @@ class FglairLocalConfigFlow(ConfigFlow, domain=DOMAIN):
     async def _async_use_cloud(
         self, cloud: AylaCloud, devices: list[CloudDevice]
     ) -> ConfigFlowResult:
-        configured = self._async_current_ids(include_ignore=False)
+        configured = (
+            set()
+            if self.source == SOURCE_RECONFIGURE
+            else self._async_current_ids(include_ignore=False)
+        )
         self._cloud = cloud
         self._cloud_devices = {
             device.dsn: device
@@ -223,8 +228,9 @@ class FglairLocalConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def _async_fetch_key(self, device: CloudDevice) -> ConfigFlowResult:
         assert self._cloud is not None
-        await self.async_set_unique_id(device.dsn)
-        self._abort_if_unique_id_configured()
+        if self.source != SOURCE_RECONFIGURE:
+            await self.async_set_unique_id(device.dsn)
+            self._abort_if_unique_id_configured()
         if not device.lan_enabled:
             return self.async_abort(reason="lan_disabled")
         try:
@@ -234,7 +240,11 @@ class FglairLocalConfigFlow(ConfigFlow, domain=DOMAIN):
         self._dsn = device.dsn
         self._lan_key = lan_key.key
         self._title = device.product_name
-        self._host = self._host or device.lan_ip
+        if self.source == SOURCE_RECONFIGURE:
+            # Re-pairing often comes with a new lease; the cloud knows the current one.
+            self._host = device.lan_ip or self._host
+        else:
+            self._host = self._host or device.lan_ip
         if self._host is None:
             self._error = "no_address"
             return await self.async_step_local()
@@ -245,8 +255,7 @@ class FglairLocalConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Take the unit's address and a LAN key kept from before."""
         if self.source == SOURCE_RECONFIGURE:
-            # Only the callback is reconfigured; the address and key are the entry's.
-            return self.async_abort(reason=self._error or "cannot_connect")
+            return await self.async_step_unit()
         errors: dict[str, str] = {}
         if self._error:
             errors["base"], self._error = self._error, None
@@ -291,14 +300,65 @@ class FglairLocalConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Change the address the unit dials Home Assistant back at."""
+        """Change the unit's address or key, or the address it dials back at."""
         entry = self._get_reconfigure_entry()
         self._host = entry.data[CONF_HOST]
         self._dsn = entry.data[CONF_DSN]
         self._lan_key = entry.data[CONF_LANIP_KEY]
         self._callback_host = entry.data[CONF_CALLBACK_HOST]
         self._callback_port = entry.data[CONF_CALLBACK_PORT]
-        return await self.async_step_callback()
+        # The entry's callback stays unless changed in its own step.
+        self._callback_entered = True
+        return self.async_show_menu(
+            step_id="reconfigure",
+            menu_options=RECONFIGURE_MENU,
+            description_placeholders={"host": self._host, "dsn": self._dsn},
+        )
+
+    async def async_step_unit(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Change the unit's address, its LAN key, or both."""
+        errors: dict[str, str] = {}
+        if self._error:
+            errors["base"], self._error = self._error, None
+        if user_input is not None:
+            host = user_input[CONF_HOST].strip()
+            # Blank keeps the key in hand: the entry's, or one fetched from the cloud.
+            lan_key = user_input.get(CONF_LANIP_KEY, "").strip() or self._lan_key
+            if not is_ip_address(host):
+                errors[CONF_HOST] = "invalid_ip"
+            else:
+                if host != self._get_reconfigure_entry().data[CONF_HOST]:
+                    self._async_abort_entries_match({CONF_HOST: host})
+                try:
+                    dsn = await fetch_dsn(async_get_clientsession(self.hass), host)
+                except CannotConnectError:
+                    errors["base"] = "cannot_connect"
+                except AylaLanError:
+                    errors["base"] = "not_ayla"
+                else:
+                    if dsn != self._dsn:
+                        errors["base"] = "wrong_device"
+                    else:
+                        self._host = host
+                        self._lan_key = lan_key
+                        return await self.async_step_verify()
+
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_HOST): str,
+                vol.Optional(CONF_LANIP_KEY): PASSWORD_SELECTOR,
+            }
+        )
+        return self.async_show_form(
+            step_id="unit",
+            data_schema=self.add_suggested_values_to_schema(
+                schema, {CONF_HOST: (user_input or {}).get(CONF_HOST, self._host)}
+            ),
+            errors=errors,
+            description_placeholders={"dsn": str(self._dsn)},
+        )
 
     async def async_step_callback(
         self, user_input: dict[str, Any] | None = None
@@ -439,6 +499,9 @@ class FglairLocalConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_show_progress_done(next_step_id="callback")
         except InvalidKeyError:
             self._error = "invalid_key"
+            if self.source == SOURCE_RECONFIGURE:
+                # So a blank key on the retry does not offer the rejected one again.
+                self._lan_key = self._get_reconfigure_entry().data[CONF_LANIP_KEY]
             return self.async_show_progress_done(next_step_id="local")
         return self.async_show_progress_done(next_step_id="finish")
 
@@ -471,6 +534,8 @@ class FglairLocalConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_update_reload_and_abort(
                 self._get_reconfigure_entry(),
                 data_updates={
+                    CONF_HOST: self._host,
+                    CONF_LANIP_KEY: self._lan_key,
                     CONF_LANIP_KEY_ID: self._key_id,
                     CONF_CALLBACK_HOST: self._callback_host,
                     CONF_CALLBACK_PORT: self._callback_port,
