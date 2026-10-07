@@ -22,7 +22,7 @@
     "aioayla_lan"
   ],
   "requirements": [
-    "aioayla-lan==0.1.2"
+    "aioayla-lan==0.2.0"
   ],
   "version": "0.2.0"
 }
