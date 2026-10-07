@@ -14,6 +14,7 @@ Only Fujitsu units set up in the FGLair app are supported. Other brands' applian
 
 - Home Assistant 2026.3.0 or newer.
 - The air conditioner and Home Assistant on the same network. The unit opens its own connection back to Home Assistant, and it only connects to addresses on its own subnet.
+- A fixed IP address for the unit. Reserve one for the adapter in your router; see [Give the unit a fixed IP address](docs/faq.md#give-the-unit-a-fixed-ip-address).
 - The unit's LAN key. Setup can fetch it from the FGLair cloud once, or you can paste one you saved earlier.
 - A plain-HTTP port on Home Assistant that the unit can reach. The unit cannot speak HTTPS; see [Callback address](#callback-address).
 
@@ -60,7 +61,17 @@ Choose how Home Assistant gets the unit's LAN key:
 
 Home Assistant then registers with the unit and waits up to 30 seconds for it to connect back. The entry is created only after the unit has connected and the key has been checked.
 
-Give the unit a fixed IP address in your router. If its address changes anyway, DHCP discovery updates the entry.
+Give the unit a fixed IP address in your router. If its address changes anyway, DHCP discovery updates the entry while the unit answers at its new address; otherwise enter the new address with **Reconfigure**.
+
+### Reconfigure
+
+Open the entry's **⋮** menu and choose **Reconfigure** to change, without removing the unit:
+
+- **Address or LAN key:** the unit's IP address, its LAN key, or both. Leave the key empty to keep the current one.
+- **Fetch the LAN key from FGLair:** sign in once to fetch a new key, for example after the unit was re-paired in the FGLair app.
+- **How the unit reaches Home Assistant:** the callback address, see below.
+
+The unit is checked with the new settings before they are saved.
 
 ### Callback address
 
@@ -72,7 +83,7 @@ If the default does not work, setup asks for the address and port:
 - **Home Assistant serving HTTPS:** The unit can only connect over plain HTTP. Put a plain-HTTP reverse proxy in front of Home Assistant on your LAN and enter its address and port.
 - **Firewall:** The port must accept connections from the unit.
 
-To change the callback address later, for example after moving Home Assistant to another machine, open the entry's menu and choose **Reconfigure**. The unit is checked at the new address before the change is saved.
+To change the callback address later, for example after moving Home Assistant to another machine, choose **Reconfigure > How the unit reaches Home Assistant**.
 
 ## Entities
 
@@ -91,9 +102,12 @@ To change the callback address later, for example after moving Home Assistant to
 - **Cloud integrations interfere.** Home Assistant's built-in Fujitsu FGLair integration asks the unit to refresh every 5 minutes. For about 2 minutes after each refresh the unit ignores local commands. Disable or remove the cloud integration for units added here.
 - **IR remote louvre changes are not reported.** The unit reports mode and temperature changes made with the remote, but not louvre changes. The louvre state updates the next time it is read, for example with **Re-read all properties**.
 - **Timers are not supported yet.**
-- **LAN key changes.** If the unit is re-paired in the FGLair app and gets a new LAN key, remove the entry and add the unit again.
+- **The Wi-Fi adapter may stop answering.** Seen once on an AP-WF3E: it stopped answering on the network until the unit was switched off at the breaker. A UTY-TFSXW1 user reported something similar while adding a unit. The cause is not known yet. See [The unit shows as unavailable](docs/faq.md#the-unit-shows-as-unavailable).
+- **No heating / cooling / defrost activity.** The unit does not appear to report what it is doing over the local connection.
 
 ## Troubleshooting
+
+Start with the [FAQ](docs/faq.md). It covers a unit that shows as unavailable, a changed IP address or LAN key, and the "was not acknowledged" warnings.
 
 Download diagnostics from the device page. They include the unit's last reported values and session state, with the LAN key, serial number and addresses redacted.
 
