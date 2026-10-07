@@ -31,9 +31,8 @@ POWERFUL_MODE = "powerful_mode"
 
 # Louvre positions by `af_*_direction` value, from 1. Tested on AP-WF3E; the
 # unit's `af_horizontal_num_dir` (21) is not the position count.
-VERTICAL_POSITIONS = ("top", "upper_middle", "lower_middle", "bottom")
-# Vertical positions for any other count, 1 the highest. ASYG-KMCC reports 6.
-NUMBERED_POSITIONS = tuple(f"position_{n}" for n in range(1, 9))
+# Vertical: 1 the highest. AP-WF3E reports 4 positions, ASYG-KMCC 6.
+VERTICAL_POSITIONS = tuple(f"position_{n}" for n in range(1, 9))
 HORIZONTAL_POSITIONS = ("left", "left_center", "center", "right_center", "right")
 
 # On/off settings. Tested on AP-WF3E: economy_mode, outdoor_low_noise,

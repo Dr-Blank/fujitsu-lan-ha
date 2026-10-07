@@ -117,10 +117,6 @@
           },
           "swing_mode": {
             "state": {
-              "top": "Top",
-              "upper_middle": "Upper middle",
-              "lower_middle": "Lower middle",
-              "bottom": "Bottom",
               "position_1": "Position 1",
               "position_2": "Position 2",
               "position_3": "Position 3",

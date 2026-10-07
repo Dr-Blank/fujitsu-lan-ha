@@ -39,7 +39,6 @@ from custom_components.fglair_local.const import DOMAIN
 from custom_components.fglair_local.properties import (
     EXTRA_PROPERTIES,
     HORIZONTAL_POSITIONS,
-    NUMBERED_POSITIONS,
     PRIME_PROPERTIES,
     VERTICAL_POSITIONS,
 )
@@ -51,7 +50,7 @@ SWING_FEATURES = (
     ClimateEntityFeature.SWING_MODE | ClimateEntityFeature.SWING_HORIZONTAL_MODE
 )
 NO_SWING = ClimateEntityFeature(0)
-VERTICAL_MODES = ["on", "off", "top", "upper_middle", "lower_middle", "bottom"]
+VERTICAL_MODES = ["on", "off", *VERTICAL_POSITIONS[:4]]
 HORIZONTAL_MODES = [
     "on",
     "off",
@@ -122,7 +121,7 @@ async def test_services_queue_writes(hass: HomeAssistant, unit: SimulatedUnit) -
         (SERVICE_SET_TEMPERATURE, {ATTR_TEMPERATURE: 25}),
         (SERVICE_SET_HVAC_MODE, {ATTR_HVAC_MODE: HVACMode.HEAT}),
         (SERVICE_SET_FAN_MODE, {ATTR_FAN_MODE: "quiet"}),
-        (SERVICE_SET_SWING_MODE, {ATTR_SWING_MODE: "bottom"}),
+        (SERVICE_SET_SWING_MODE, {ATTR_SWING_MODE: "position_4"}),
         (SERVICE_SET_SWING_HORIZONTAL_MODE, {ATTR_SWING_HORIZONTAL_MODE: "on"}),
         (SERVICE_TURN_OFF, {}),
     ):
@@ -138,7 +137,7 @@ async def test_services_queue_writes(hass: HomeAssistant, unit: SimulatedUnit) -
     assert state.state == HVACMode.OFF
     assert state.attributes[ATTR_TEMPERATURE] == 25.0
     assert state.attributes[ATTR_FAN_MODE] == "quiet"
-    assert state.attributes[ATTR_SWING_MODE] == "bottom"
+    assert state.attributes[ATTR_SWING_MODE] == "position_4"
     assert state.attributes[ATTR_SWING_HORIZONTAL_MODE] == "on"
 
     writes = [await unit.fetch_write() for _ in range(6)]
@@ -350,7 +349,7 @@ async def test_positions_follow_count(
     datapoints: dict[str, int],
     swing_modes: list[str],
 ) -> None:
-    """Vertical positions are numbered for a plausible count other than 4.
+    """Vertical positions follow a plausible count, and default to 4.
 
     Horizontal ones never follow a count.
     """
@@ -384,7 +383,7 @@ async def test_positions_follow_count(
                 "af_horizontal_swing": 0,
                 "af_horizontal_direction": 3,
             },
-            "upper_middle",
+            "position_2",
             "center",
             id="held",
         ),
@@ -395,7 +394,7 @@ async def test_positions_follow_count(
                 "af_horizontal_swing": 0,
                 "af_horizontal_direction": 5,
             },
-            "bottom",
+            "position_4",
             "right",
             id="held_at_last",
         ),
@@ -452,9 +451,9 @@ async def test_positions_follow_count(
                 "af_vertical_num_dir": 4,
                 "af_horizontal_swing": 1,
             },
-            "bottom",
+            "position_4",
             "on",
-            id="held_named_with_count",
+            id="held_last_with_count",
         ),
         pytest.param(
             {
@@ -553,19 +552,19 @@ async def test_swing_state(
             [("af_vertical_swing", 0, "boolean")],
             ATTR_SWING_MODE,
             # A stopped louvre shows the position the unit last reported.
-            "top",
+            "position_1",
             id="vertical_off",
         ),
         pytest.param(
             {"af_vertical_swing": 1},
             SERVICE_SET_SWING_MODE,
-            {ATTR_SWING_MODE: "lower_middle"},
+            {ATTR_SWING_MODE: "position_3"},
             [
                 ("af_vertical_swing", 0, "boolean"),
                 ("af_vertical_direction", 3, "integer"),
             ],
             ATTR_SWING_MODE,
-            "lower_middle",
+            "position_3",
             id="vertical_position",
         ),
         pytest.param(
@@ -691,7 +690,7 @@ async def test_set_swing_mode(
         ),
         pytest.param(
             SERVICE_SET_SWING_HORIZONTAL_MODE,
-            {ATTR_SWING_HORIZONTAL_MODE: "top"},
+            {ATTR_SWING_HORIZONTAL_MODE: "position_1"},
             id="vertical_position_on_horizontal",
         ),
         pytest.param(
@@ -700,7 +699,7 @@ async def test_set_swing_mode(
         pytest.param(
             SERVICE_SET_SWING_MODE,
             {ATTR_SWING_MODE: "top"},
-            id="named_position_on_numbered",
+            id="old_named_position",
         ),
     ],
 )
@@ -755,7 +754,7 @@ async def test_numbered_position_follows_late_count(
     assert state.attributes[ATTR_SWING_MODES] == [
         "on",
         "off",
-        *NUMBERED_POSITIONS[:6],
+        *VERTICAL_POSITIONS[:6],
     ]
 
 
@@ -763,7 +762,6 @@ async def test_numbered_position_follows_late_count(
     ("attribute", "positions"),
     [
         pytest.param(ATTR_SWING_MODE, VERTICAL_POSITIONS, id="vertical"),
-        pytest.param(ATTR_SWING_MODE, NUMBERED_POSITIONS, id="numbered"),
         pytest.param(ATTR_SWING_HORIZONTAL_MODE, HORIZONTAL_POSITIONS, id="horizontal"),
     ],
 )

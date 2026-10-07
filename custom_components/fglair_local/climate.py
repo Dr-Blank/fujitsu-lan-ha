@@ -31,7 +31,6 @@ from .properties import (
     HORIZONTAL_DIRECTION,
     HORIZONTAL_POSITIONS,
     HORIZONTAL_SWING,
-    NUMBERED_POSITIONS,
     OPERATION_MODE,
     VERTICAL_DIRECTION,
     VERTICAL_NUM_DIR,
@@ -99,10 +98,10 @@ class Louvre:
     capability: Capability
     on_mode: str
     off_mode: str
-    # Property holding how many positions this model has, when it is truthful.
+    # Property holding how many of `positions` this model has, when it is truthful.
     count: str | None = None
-    # Offered instead of `positions` for a plausible `count` other than theirs.
-    numbered: tuple[str, ...] = ()
+    # How many to offer when `count` is missing or implausible; None for all.
+    default_count: int | None = None
 
 
 VERTICAL = Louvre(
@@ -113,7 +112,7 @@ VERTICAL = Louvre(
     SWING_ON,
     SWING_OFF,
     VERTICAL_NUM_DIR,
-    NUMBERED_POSITIONS,
+    4,
 )
 HORIZONTAL = Louvre(
     HORIZONTAL_SWING,
@@ -179,16 +178,10 @@ class FglairLocalClimate(FglairLocalEntity, ClimateEntity):
         return louvre.capability in caps
 
     def _positions(self, louvre: Louvre) -> tuple[str, ...]:
-        if louvre.count is None:
-            return louvre.positions
-        count = self._value(louvre.count)
-        if (
-            count is None
-            or count == len(louvre.positions)
-            or not 1 <= count <= len(louvre.numbered)
-        ):
-            return louvre.positions
-        return louvre.numbered[:count]
+        count = None if louvre.count is None else self._value(louvre.count)
+        if count is None or not 1 <= count <= len(louvre.positions):
+            count = louvre.default_count
+        return louvre.positions[:count]
 
     def _modes(self, louvre: Louvre) -> list[str] | None:
         if not self._has(louvre):
