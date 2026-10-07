@@ -208,3 +208,15 @@ def encode_setpoint(celsius: float) -> int:
 def decode_firmware_version(value: Any) -> str:
     """Firmware version, without the `,:,:,:,` padding the unit appends."""
     return str(value).rstrip(",:")
+
+
+# Adapters seen to stop answering on the LAN until the unit is power-cycled.
+HANGING_ADAPTERS = frozenset({"AP-WF3E"})
+
+
+def decode_adapter_model(model_name: Any) -> str | None:
+    """Wi-Fi adapter model, from a `model_name` such as `30KJTA-B : AP-WF3E`."""
+    _, sep, adapter = str(model_name).rpartition(" : ")
+    if not sep:
+        return None
+    return adapter.strip() or None

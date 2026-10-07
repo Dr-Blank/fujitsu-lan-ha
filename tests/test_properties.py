@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 
 from custom_components.fglair_local.properties import (
+    decode_adapter_model,
     decode_firmware_version,
     decode_sensed_temperature,
     decode_setpoint,
@@ -85,3 +86,19 @@ def test_raw_int(value: Any, expected: int | None) -> None:
 def test_decode_firmware_version(raw: str, version: str) -> None:
     """The unit pads its firmware version with separators."""
     assert decode_firmware_version(raw) == version
+
+
+@pytest.mark.parametrize(
+    ("model_name", "adapter"),
+    [
+        pytest.param("30KJTA-B : AP-WF3E", "AP-WF3E", id="indoor_and_adapter"),
+        pytest.param("A : B : AP-WF3E ", "AP-WF3E", id="last_part_stripped"),
+        pytest.param("E_2026-09-10", None, id="no_adapter"),
+        pytest.param("X : ", None, id="blank_adapter"),
+        pytest.param("", None, id="empty"),
+        pytest.param(None, None, id="missing"),
+    ],
+)
+def test_decode_adapter_model(model_name: str | None, adapter: str | None) -> None:
+    """The Wi-Fi adapter is named after the last separator of `model_name`."""
+    assert decode_adapter_model(model_name) == adapter

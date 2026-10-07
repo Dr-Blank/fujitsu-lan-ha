@@ -6,12 +6,19 @@ import logging
 import time
 from typing import Any
 
-from aioayla_lan import AylaLanDevice, AylaLanServer, Datapoint, LanKey, WriteError
+from aioayla_lan import (
+    AylaLanDevice,
+    AylaLanServer,
+    Datapoint,
+    LanKey,
+    WriteError,
+    WriteUnacknowledgedError,
+)
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
-from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import device_registry as dr, issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
 from homeassistant.helpers.typing import UNDEFINED, UndefinedType
@@ -29,10 +36,12 @@ from .properties import (
     DEVICE_CAPABILITIES,
     DISPLAY_TEMPERATURE,
     EXTRA_PROPERTIES,
+    HANGING_ADAPTERS,
     MCU_FW_VERSION,
     MODEL_NAME,
     PRIME_PROPERTIES,
     READ_BACK,
+    decode_adapter_model,
     decode_firmware_version,
     is_reported,
 )
@@ -51,6 +60,11 @@ READ_BACK_MAX_DELAY = 60.0
 # An idle unit is asked for something now and then, so a hung one is noticed.
 PROBE_INTERVAL = 60.0
 WATCHDOG_INTERVAL = timedelta(seconds=5)
+# Unavailable only after 30 s of silence already; brief drops stay out of the log.
+UNAVAILABLE_LOG_DELAY = 30.0
+# A hung adapter does not recover by itself, so say how to revive it.
+REPAIR_DELAY = 600.0
+FAQ_URL = "https://github.com/Dr-Blank/fujitsu-lan-ha/blob/main/docs/faq.md"
 # Survive a lost session: fixed for the unit, and re-read only at startup.
 STATIC_PROPERTIES = frozenset({DEVICE_CAPABILITIES, MODEL_NAME, MCU_FW_VERSION})
 
@@ -81,6 +95,9 @@ class FglairLocalDevice:
         self._cancel_read_back: CALLBACK_TYPE | None = None
         self._read_back_deadline: float | None = None
         self._was_available = False
+        self._unavailable_since: float | None = time.monotonic()
+        self._unavailable_logged = False
+        self._issue_id = f"adapter_unresponsive_{self.dsn}"
         redact_key_in_logs(entry.data[CONF_LANIP_KEY])
         self.lan = AylaLanDevice(
             async_get_clientsession(hass),
@@ -117,6 +134,7 @@ class FglairLocalDevice:
         @callback
         def stop() -> None:
             cancel_watchdog()
+            ir.async_delete_issue(self._hass, DOMAIN, self._issue_id)
             if self._cancel_read_back:
                 self._cancel_read_back()
                 self._cancel_read_back = None
@@ -133,6 +151,60 @@ class FglairLocalDevice:
             self.lan.request_properties((DISPLAY_TEMPERATURE,))
         if self.available != self._was_available:
             self._notify()
+        self._track_availability()
+
+    def _track_availability(self) -> None:
+        if self.available:
+            if self._unavailable_logged and self._unavailable_since is not None:
+                _LOGGER.info(
+                    "%s: responding again after %.0f s",
+                    self.dsn,
+                    time.monotonic() - self._unavailable_since,
+                )
+                ir.async_delete_issue(self._hass, DOMAIN, self._issue_id)
+            self._unavailable_since = None
+            self._unavailable_logged = False
+            return
+        now = time.monotonic()
+        if self._unavailable_since is None:
+            self._unavailable_since = now
+        down = now - self._unavailable_since
+        if not self._unavailable_logged and down >= UNAVAILABLE_LOG_DELAY:
+            self._unavailable_logged = True
+            _LOGGER.warning(
+                "%s: not responding at %s. If this lasts, see %s",
+                self.dsn,
+                self._entry.data[CONF_HOST],
+                FAQ_URL,
+            )
+        if down < REPAIR_DELAY:
+            return
+        adapter = self._adapter_model()
+        if adapter in HANGING_ADAPTERS:
+            ir.async_create_issue(
+                self._hass,
+                DOMAIN,
+                self._issue_id,
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                learn_more_url=FAQ_URL,
+                translation_key="adapter_unresponsive",
+                translation_placeholders={
+                    "name": self._entry.title,
+                    "host": self._entry.data[CONF_HOST],
+                    "adapter": adapter,
+                },
+            )
+
+    def _adapter_model(self) -> str | None:
+        # The registry keeps the model across restarts, before the unit reports it.
+        model = self.values.get(MODEL_NAME)
+        if model is None:
+            devices = dr.async_entries_for_config_entry(
+                dr.async_get(self._hass), self._entry.entry_id
+            )
+            model = next((d.model for d in devices if d.model), None)
+        return decode_adapter_model(model)
 
     def detach(self) -> None:
         """Stop accepting callbacks for this unit and stop updating entities."""
@@ -181,6 +253,10 @@ class FglairLocalDevice:
     async def _async_write(self, name: str, value: int, base_type: str) -> None:
         try:
             await self.lan.async_set_property(name, value, base_type)
+        except WriteUnacknowledgedError as err:
+            # Often applied all the same: UTY-TFSXW1 never acks, AP-WF3E can
+            # miss one after a reboot. Undoing the guess would flicker.
+            _LOGGER.debug("%s: %s, awaiting read-back", self.dsn, err)
         except WriteError as err:
             _LOGGER.warning(
                 "%s: could not set %s to %s: %s", self.dsn, name, value, err
@@ -194,8 +270,7 @@ class FglairLocalDevice:
         self._schedule_read_back((name, *READ_BACK.get(name, ())))
 
     def _revert(self, name: str, value: int) -> None:
-        # Unless a newer write or a pushed value replaced the guess; the
-        # read-back still follows, as a missing ack does not prove it failed.
+        # Unless a newer write or a pushed value replaced the guess.
         if name not in self._confirmed or self.values.get(name) != value:
             return
         self.values[name] = self._confirmed.pop(name)
