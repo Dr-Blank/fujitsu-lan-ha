@@ -12,6 +12,9 @@
   "dhcp": [
     {
       "hostname": "ap-wf*"
+    },
+    {
+      "hostname": "ac-uty-*"
     }
   ],
   "documentation": "https://github.com/Dr-Blank/fujitsu-lan-ha",
