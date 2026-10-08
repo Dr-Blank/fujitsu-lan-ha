@@ -36,7 +36,12 @@ class FglairLocalEntity(Entity):
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to pushed updates."""
-        self.async_on_remove(self.device.async_add_listener(self.async_write_ha_state))
+        self.async_on_remove(self.device.async_add_listener(self._handle_device_update))
+
+    @callback
+    def _handle_device_update(self) -> None:
+        """Write the state the unit pushed."""
+        self.async_write_ha_state()
 
 
 @callback

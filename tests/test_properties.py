@@ -38,6 +38,7 @@ def test_decode_sensed_temperature(raw: Any, celsius: float | None) -> None:
         pytest.param(240, 24.0, id="setpoint"),
         pytest.param(245, 24.5, id="half_degree"),
         pytest.param(65535, None, id="not_applicable"),
+        pytest.param(0, None, id="off"),
         pytest.param(None, None, id="missing"),
         pytest.param([240], None, id="garbage"),
     ],

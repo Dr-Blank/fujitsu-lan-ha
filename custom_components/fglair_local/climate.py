@@ -18,8 +18,9 @@ from homeassistant.components.climate.const import (
     HVACMode,
 )
 from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.restore_state import RestoredExtraData, RestoreEntity
 
 from .coordinator import FglairLocalConfigEntry, FglairLocalDevice
 from .entity import FglairLocalEntity
@@ -46,6 +47,7 @@ from .properties import (
 )
 
 FAN_QUIET = "quiet"
+DEFAULT_SETPOINT = 24.0
 
 HVAC_TO_OP = {
     HVACMode.OFF: OpMode.OFF,
@@ -133,7 +135,7 @@ async def async_setup_entry(
     async_add_entities([FglairLocalClimate(entry.runtime_data)])
 
 
-class FglairLocalClimate(FglairLocalEntity, ClimateEntity):
+class FglairLocalClimate(FglairLocalEntity, RestoreEntity, ClimateEntity):
     """The air conditioner."""
 
     _attr_name = None
@@ -142,11 +144,38 @@ class FglairLocalClimate(FglairLocalEntity, ClimateEntity):
     _attr_target_temperature_step = 0.5
     _attr_min_temp = 16
     _attr_max_temp = 30
+    # The unit reports a setpoint of 0 while off; keep showing the last real one.
+    _attr_target_temperature = DEFAULT_SETPOINT
 
     def __init__(self, device: FglairLocalDevice) -> None:
         """Initialise."""
         super().__init__(device)
         self._attr_unique_id = device.dsn
+
+    async def async_added_to_hass(self) -> None:
+        """Restore the last setpoint, then follow the unit."""
+        if (extra := await self.async_get_last_extra_data()) is not None and (
+            setpoint := extra.as_dict().get(ATTR_TEMPERATURE)
+        ) is not None:
+            self._attr_target_temperature = setpoint
+        self._update_setpoint()
+        await super().async_added_to_hass()
+
+    @property
+    def extra_restore_state_data(self) -> RestoredExtraData:
+        """Setpoint in °C; the state attribute is in the user's unit."""
+        return RestoredExtraData({ATTR_TEMPERATURE: self._attr_target_temperature})
+
+    def _update_setpoint(self) -> None:
+        if (
+            setpoint := decode_setpoint(self.device.values.get(ADJUST_TEMPERATURE))
+        ) is not None:
+            self._attr_target_temperature = setpoint
+
+    @callback
+    def _handle_device_update(self) -> None:
+        self._update_setpoint()
+        super()._handle_device_update()
 
     def _value(self, name: str) -> int | None:
         return raw_int(self.device.values.get(name))
@@ -238,11 +267,6 @@ class FglairLocalClimate(FglairLocalEntity, ClimateEntity):
         if (raw := self._value(OPERATION_MODE)) is None:
             return None
         return OP_TO_HVAC.get(OpMode(raw)) if raw in OpMode else None
-
-    @property
-    def target_temperature(self) -> float | None:
-        """Setpoint."""
-        return decode_setpoint(self.device.values.get(ADJUST_TEMPERATURE))
 
     @property
     def current_temperature(self) -> float | None:

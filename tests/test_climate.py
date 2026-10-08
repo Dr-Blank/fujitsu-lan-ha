@@ -1,6 +1,10 @@
 """End-to-end tests of the climate entity, driven by a simulated unit."""
 
 import pytest
+from pytest_homeassistant_custom_component.common import (
+    async_mock_restore_state_shutdown_restart,
+    mock_restore_cache_with_extra_data,
+)
 
 from homeassistant.components.climate import (
     ATTR_CURRENT_TEMPERATURE,
@@ -29,12 +33,18 @@ from homeassistant.const import (
     SERVICE_TURN_ON,
     STATE_UNKNOWN,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, State
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.translation import async_get_translations
+from homeassistant.util.unit_system import (
+    METRIC_SYSTEM,
+    US_CUSTOMARY_SYSTEM,
+    UnitSystem,
+)
 
 from . import SimulatedUnit, read_resource, written
 from .const import CLIMATE_ENTITY_ID, UNIT_DATAPOINTS
+from custom_components.fglair_local.climate import DEFAULT_SETPOINT
 from custom_components.fglair_local.const import DOMAIN
 from custom_components.fglair_local.properties import (
     EXTRA_PROPERTIES,
@@ -60,6 +70,23 @@ HORIZONTAL_MODES = [
     "right_center",
     "right",
 ]
+
+OFF_WITHOUT_SETPOINT = {**UNIT_DATAPOINTS, "operation_mode": 0, "adjust_temperature": 0}
+RESTORED_SETPOINT = 21.5
+
+
+@pytest.fixture
+def restored_setpoint(hass: HomeAssistant) -> None:
+    """Seed the setpoint saved before a restart, ahead of the entry loading."""
+    mock_restore_cache_with_extra_data(
+        hass,
+        (
+            (
+                State(CLIMATE_ENTITY_ID, HVACMode.OFF),
+                {ATTR_TEMPERATURE: RESTORED_SETPOINT},
+            ),
+        ),
+    )
 
 
 async def test_state_from_datapoints(hass: HomeAssistant, unit: SimulatedUnit) -> None:
@@ -782,7 +809,6 @@ async def test_positions_are_translated(
     ("name", "value", "attribute"),
     [
         pytest.param("display_temperature", 65535, ATTR_CURRENT_TEMPERATURE, id="room"),
-        pytest.param("adjust_temperature", 65535, ATTR_TEMPERATURE, id="setpoint"),
         pytest.param("fan_speed", 65535, ATTR_FAN_MODE, id="fan_sentinel"),
         pytest.param("fan_speed", 9, ATTR_FAN_MODE, id="fan_out_of_range"),
     ],
@@ -820,3 +846,97 @@ async def test_unreadable_mode_is_unknown(
     state = hass.states.get(CLIMATE_ENTITY_ID)
     assert state is not None
     assert state.state == STATE_UNKNOWN
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(0, id="off"),
+        pytest.param(65535, id="sentinel"),
+    ],
+)
+async def test_setpoint_kept_when_unreadable(
+    hass: HomeAssistant, unit: SimulatedUnit, value: int
+) -> None:
+    """A unit turned off reports no setpoint, so the last real one stays."""
+    await unit.key_exchange()
+    # Not DEFAULT_SETPOINT, so keeping it is told apart from falling back.
+    await unit.push_all({**UNIT_DATAPOINTS, "adjust_temperature": 250})
+    await unit.push("operation_mode", 0)
+    await unit.push("adjust_temperature", value)
+
+    state = hass.states.get(CLIMATE_ENTITY_ID)
+    assert state is not None
+    assert state.state == HVACMode.OFF
+    assert state.attributes[ATTR_TEMPERATURE] == 25.0
+
+
+@pytest.mark.parametrize(
+    "datapoints",
+    [
+        pytest.param({}, id="nothing_reported"),
+        pytest.param(OFF_WITHOUT_SETPOINT, id="off"),
+    ],
+)
+async def test_setpoint_defaults_until_reported(
+    hass: HomeAssistant, unit: SimulatedUnit, datapoints: dict[str, int]
+) -> None:
+    """With no setpoint reported or restored, the default is shown."""
+    await unit.key_exchange()
+    await unit.push_all(datapoints)
+
+    state = hass.states.get(CLIMATE_ENTITY_ID)
+    assert state is not None
+    assert state.attributes[ATTR_TEMPERATURE] == DEFAULT_SETPOINT
+
+
+@pytest.mark.usefixtures("restored_setpoint")
+@pytest.mark.parametrize(
+    ("datapoints", "setpoint"),
+    [
+        pytest.param({}, RESTORED_SETPOINT, id="nothing_reported"),
+        pytest.param(OFF_WITHOUT_SETPOINT, RESTORED_SETPOINT, id="off"),
+        pytest.param(
+            {**UNIT_DATAPOINTS, "adjust_temperature": 250}, 25.0, id="unit_reports"
+        ),
+    ],
+)
+async def test_setpoint_restored(
+    hass: HomeAssistant,
+    unit: SimulatedUnit,
+    datapoints: dict[str, int],
+    setpoint: float,
+) -> None:
+    """The setpoint saved before a restart shows until the unit reports its own."""
+    await unit.key_exchange()
+    await unit.push_all(datapoints)
+
+    state = hass.states.get(CLIMATE_ENTITY_ID)
+    assert state is not None
+    assert state.attributes[ATTR_TEMPERATURE] == setpoint
+
+
+@pytest.mark.parametrize(
+    ("units", "shown"),
+    [
+        pytest.param(METRIC_SYSTEM, 25.0, id="metric"),
+        pytest.param(US_CUSTOMARY_SYSTEM, 77.0, id="us_customary"),
+    ],
+)
+async def test_setpoint_saved_in_celsius(
+    hass: HomeAssistant, unit: SimulatedUnit, units: UnitSystem, shown: float
+) -> None:
+    """The saved setpoint is the unit's °C, whatever unit the state shows."""
+    hass.config.units = units
+    await unit.key_exchange()
+    await unit.push_all({**UNIT_DATAPOINTS, "adjust_temperature": 250})
+
+    state = hass.states.get(CLIMATE_ENTITY_ID)
+    assert state is not None
+    assert state.attributes[ATTR_TEMPERATURE] == shown
+
+    data = await async_mock_restore_state_shutdown_restart(hass)
+
+    extra_data = data.last_states[CLIMATE_ENTITY_ID].extra_data
+    assert extra_data is not None
+    assert extra_data.as_dict() == {ATTR_TEMPERATURE: 25.0}

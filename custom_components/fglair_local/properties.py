@@ -195,7 +195,8 @@ def decode_sensed_temperature(value: Any) -> float | None:
 
 def decode_setpoint(value: Any) -> float | None:
     """Setpoint: °C x 10."""
-    if (raw := raw_int(value)) is None:
+    # Units report 0 while off.
+    if not (raw := raw_int(value)):
         return None
     return raw / 10
 
