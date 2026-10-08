@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.14.2"
 resolution-markers = [
     "python_full_version >= '3.15'",
@@ -24,15 +24,15 @@ wheels = [
 
 [[package]]
 name = "aioayla-lan"
-version = "0.2.0"
+version = "0.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
     { name = "cryptography" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4b/88/3f9eee3508d38f9a1329f6b4aa0ed42124d78724f1f995e952a47a57a8fe/aioayla_lan-0.2.0.tar.gz", hash = "sha256:735af67525797a5125ce197baf209fba4abc9226d00a15d429949660a30b1eab", size = 34253, upload-time = "2026-10-07T09:40:38.041Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b4/68/9c95caab17ed6949a8da414e1cb83e4f6731871bd4a34f84d1d96be704c2/aioayla_lan-0.2.1.tar.gz", hash = "sha256:a556af321e54f7703659c954b458331333d1239d7f1f20ced9062584178a9bf6", size = 34321, upload-time = "2026-10-08T11:48:31.821Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3a/17/f3deb1c9ef6f9f8f11ef76bf051ff65474b6c2d7e9925785331f310bf6f2/aioayla_lan-0.2.0-py3-none-any.whl", hash = "sha256:64f26fffcbda372f44a3903d579d1e9f09d810c975936814d39146406227c398", size = 20319, upload-time = "2026-10-07T09:40:36.904Z" },
+    { url = "https://files.pythonhosted.org/packages/ac/1a/8059f91ce823cfb6d8eeae66e76047e3ad2a97fc8e16587392b60fcd642c/aioayla_lan-0.2.1-py3-none-any.whl", hash = "sha256:ad41e38693724237d5c942da31be83d924d7f9ac17345f5004cb1266d42a5e62", size = 20321, upload-time = "2026-10-08T11:48:30.329Z" },
 ]
 
 [[package]]
@@ -1083,7 +1083,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "aioayla-lan", specifier = "==0.2.0" }]
+requires-dist = [{ name = "aioayla-lan", specifier = "==0.2.1" }]
 
 [package.metadata.requires-dev]
 dev = [
