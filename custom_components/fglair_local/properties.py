@@ -27,6 +27,8 @@ MCU_FW_VERSION = "mcu_fw_version"
 ERROR_CODE = "error_code"
 OPERATION_SOURCE_ID = "operation_source_id"
 HUMAN_DETECTED = "human_det"
+OP_STATUS = "op_status"
+MONITOR1 = "monitor1"
 POWERFUL_MODE = "powerful_mode"
 
 # Louvre positions by `af_*_direction` value, from 1. Tested on AP-WF3E; the
@@ -58,7 +60,7 @@ INFO_PROPERTIES = (
     ERROR_CODE,
     OPERATION_SOURCE_ID,
     HUMAN_DETECTED,
-    "op_status",
+    OP_STATUS,
     "system_type",
     "comm_version",
     "oem_host_version",
@@ -77,7 +79,7 @@ INFO_PROPERTIES = (
     "service_function_setting",
     "ota_status2",
     "ota_completed",
-    "monitor1",
+    MONITOR1,
     "ac_info1",
 )
 
@@ -118,6 +120,9 @@ READ_BACK: dict[str, tuple[str, ...]] = {
 
 # Read after the prime set, so the entities that matter fill first.
 EXTRA_PROPERTIES = (*TOGGLE_PROPERTIES, *RESET_PROPERTIES, *INFO_PROPERTIES)
+# Not pushed when they change, so polled. Candidates for what the unit is
+# doing: monitor1 field 8 was 1 while the compressor ran (AP-WF3E, one sample).
+STATUS_PROPERTIES = (OP_STATUS, MONITOR1)
 
 
 class OpMode(IntEnum):

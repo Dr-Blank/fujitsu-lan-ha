@@ -36,6 +36,7 @@ from custom_components.fglair_local.coordinator import (
     READ_BACK_DELAY,
     READ_BACK_MAX_DELAY,
     REPAIR_DELAY,
+    STATUS_POLL_INTERVAL,
     UNAVAILABLE_LOG_DELAY,
     WATCHDOG_INTERVAL,
     FglairLocalDevice,
@@ -45,6 +46,8 @@ WATCHDOG = WATCHDOG_INTERVAL.total_seconds()
 FIRMWARE = {"model_name": "TESTMODEL01", "mcu_fw_version": "0.0.1,:,:,:,"}
 COORDINATOR_LOGGER = "custom_components.fglair_local.coordinator"
 HANGING_MODEL = "30KJTA-B : AP-WF3E"
+# Polled every minute, so they also show in a minute's commands.
+STATUS_READS = ("op_status", "monitor1")
 ISSUE_ID = f"adapter_unresponsive_{DSN}"
 
 
@@ -593,7 +596,9 @@ async def test_read_back_is_debounced(
         "economy_mode", "min_heat"
     )
     await advance(hass, freezer, READ_BACK_MAX_DELAY)
-    assert await unit.drain() == []
+    assert [read_resource(command) for command in await unit.drain()] == reads(
+        *STATUS_READS
+    )
 
 
 async def test_read_back_is_not_postponed_forever(
@@ -617,9 +622,10 @@ async def test_read_back_is_not_postponed_forever(
     device.set_property("min_heat", 0)
     await unit.fetch_write()
 
+    # The first status poll falls due on the same tick, in no set order.
     await advance(hass, freezer, interval)
-    assert [read_resource(command) for command in await unit.drain()] == reads(
-        "min_heat"
+    assert sorted(read_resource(command) for command in await unit.drain()) == reads(
+        "min_heat", *sorted(STATUS_READS)
     )
 
 
@@ -692,8 +698,62 @@ async def test_idle_unit_is_probed(
     assert state_of(hass, CLIMATE_ENTITY_ID) == STATE_UNAVAILABLE
 
     assert [read_resource(command) for command in await unit.drain()] == reads(
-        "display_temperature"
+        "display_temperature", *STATUS_READS
     )
+
+
+async def test_status_is_polled(
+    hass: HomeAssistant, unit: SimulatedUnit, freezer: FrozenDateTimeFactory
+) -> None:
+    """What the unit does not push is read every minute while connected.
+
+    The session's first reads include it, so the first poll is a minute later.
+    """
+    await unit.key_exchange()
+    await unit.drain()
+
+    for _ in range(2):
+        await advance(hass, freezer, STATUS_POLL_INTERVAL - 1)
+        assert await unit.drain() == []
+
+        await advance(hass, freezer, 1 + WATCHDOG)
+        assert [read_resource(command) for command in await unit.drain()] == reads(
+            *STATUS_READS
+        )
+
+
+async def _never_connect(unit: SimulatedUnit, device: FglairLocalDevice) -> None:
+    pass
+
+
+async def _connect_then_drop(unit: SimulatedUnit, device: FglairLocalDevice) -> None:
+    await unit.key_exchange()
+    await unit.drain()
+    # What the registration loop does once the unit stops answering.
+    device.lan._drop_session()  # noqa: SLF001
+
+
+@pytest.mark.parametrize(
+    "disconnect",
+    [
+        pytest.param(_never_connect, id="never_connected"),
+        pytest.param(_connect_then_drop, id="dropped"),
+    ],
+)
+async def test_status_not_polled_while_disconnected(
+    hass: HomeAssistant,
+    unit: SimulatedUnit,
+    device: FglairLocalDevice,
+    freezer: FrozenDateTimeFactory,
+    disconnect: Callable[[SimulatedUnit, FglairLocalDevice], Awaitable[None]],
+) -> None:
+    """Nothing is queued for a unit without a session."""
+    await disconnect(unit, device)
+
+    await advance(hass, freezer, STATUS_POLL_INTERVAL + WATCHDOG)
+
+    assert not device.lan.connected
+    assert not device.lan.pending
 
 
 async def test_session_drop_forgets_changeable_values(
