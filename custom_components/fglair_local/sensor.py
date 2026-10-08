@@ -18,7 +18,9 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .coordinator import FglairLocalConfigEntry, FglairLocalDevice
 from .entity import FglairLocalEntity, async_add_when_reported
 from .properties import (
+    ERROR_CODE,
     OUTDOOR_TEMPERATURE,
+    decode_error_code,
     decode_sensed_temperature,
     is_numeric,
     is_reported,
@@ -32,7 +34,7 @@ MAX_STATE_LENGTH = 255
 class FglairLocalSensorEntityDescription(SensorEntityDescription):
     """Sensor fed by one property."""
 
-    decode: Callable[[Any], float | None]
+    decode: Callable[[Any], float | str | None]
 
 
 SENSORS = (
@@ -43,6 +45,13 @@ SENSORS = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         decode=decode_sensed_temperature,
+    ),
+    # Unknown while there is no error; the problem binary sensor says so.
+    FglairLocalSensorEntityDescription(
+        key=ERROR_CODE,
+        translation_key=ERROR_CODE,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        decode=decode_error_code,
     ),
 )
 
@@ -96,7 +105,7 @@ class FglairLocalSensor(FglairLocalEntity, SensorEntity):
         self._attr_unique_id = f"{device.dsn}_{description.key}"
 
     @property
-    def native_value(self) -> float | None:
+    def native_value(self) -> float | str | None:
         """Decoded value."""
         return self.entity_description.decode(
             self.device.values.get(self.entity_description.key)

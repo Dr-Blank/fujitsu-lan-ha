@@ -6,6 +6,7 @@ import pytest
 
 from custom_components.fglair_local.properties import (
     decode_adapter_model,
+    decode_error_code,
     decode_firmware_version,
     decode_sensed_temperature,
     decode_setpoint,
@@ -74,6 +75,24 @@ def test_encode_setpoint(celsius: float, raw: int) -> None:
 def test_raw_int(value: Any, expected: int | None) -> None:
     """Raw integers parse leniently and drop the not-applicable sentinel."""
     assert raw_int(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "code"),
+    [
+        pytest.param(1574, "62.6", id="outdoor_pcb"),
+        pytest.param("1574", "62.6", id="string"),
+        pytest.param(0xA11, "A1.1", id="hex_letter"),
+        # No real code is this low; padded like every code the app shows.
+        pytest.param(0x5, "00.5", id="padded"),
+        pytest.param(0, None, id="no_error"),
+        pytest.param(65535, None, id="not_applicable"),
+        pytest.param(None, None, id="missing"),
+    ],
+)
+def test_decode_error_code(raw: Any, code: str | None) -> None:
+    """The error code's hex digits are the code the FGLair app shows."""
+    assert decode_error_code(raw) == code
 
 
 @pytest.mark.parametrize(

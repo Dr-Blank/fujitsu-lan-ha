@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from . import SimulatedUnit
-from .const import OUTDOOR_ENTITY_ID
+from .const import ERROR_CODE_ENTITY_ID, OUTDOOR_ENTITY_ID
 
 RAW_ENTITY_ID = "sensor.air_conditioner_raw_mystery_value"
 
@@ -67,6 +67,23 @@ async def test_outdoor_temperature_lost(
     await unit.push("outdoor_temperature", 65535)
 
     state = hass.states.get(OUTDOOR_ENTITY_ID)
+    assert state is not None
+    assert state.state == STATE_UNKNOWN
+
+
+async def test_error_code(hass: HomeAssistant, unit: SimulatedUnit) -> None:
+    """The code is shown as the FGLair app does, and is unknown once cleared."""
+    await unit.key_exchange()
+
+    await unit.push("error_code", 1574)
+
+    state = hass.states.get(ERROR_CODE_ENTITY_ID)
+    assert state is not None
+    assert state.state == "62.6"
+
+    await unit.push("error_code", 0)
+
+    state = hass.states.get(ERROR_CODE_ENTITY_ID)
     assert state is not None
     assert state.state == STATE_UNKNOWN
 

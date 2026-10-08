@@ -205,6 +205,16 @@ def encode_setpoint(celsius: float) -> int:
     return round(celsius * 10)
 
 
+def decode_error_code(value: Any) -> str | None:
+    """Error code as the FGLair app shows it: 1574 (0x626) is `62.6`.
+
+    The hex digits are the code, the last one after the dot. 0 means no error.
+    """
+    if not (raw := raw_int(value)):
+        return None
+    return f"{raw >> 4:02X}.{raw & 0xF:X}"
+
+
 def decode_firmware_version(value: Any) -> str:
     """Firmware version, without the `,:,:,:,` padding the unit appends."""
     return str(value).rstrip(",:")

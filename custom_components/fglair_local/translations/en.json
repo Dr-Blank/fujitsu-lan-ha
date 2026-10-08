@@ -166,6 +166,9 @@
       }
     },
     "sensor": {
+      "error_code": {
+        "name": "Error code"
+      },
       "outdoor_temperature": {
         "name": "Outdoor temperature"
       }

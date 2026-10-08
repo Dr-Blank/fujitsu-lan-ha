@@ -93,6 +93,8 @@ To change the callback address later, for example after moving Home Assistant to
 - **Switches:** economy, powerful, outdoor unit low noise, energy saving fan and human sensor, for the features your unit reports. Other on/off settings the unit reports, such as the Wi-Fi LED, are configuration entities.
 - **Occupancy:** the unit's human sensor.
 - **Outdoor temperature:** created once the unit reports a reading.
+- **Problem** (diagnostic): on while the unit reports an error.
+- **Error code** (diagnostic): the error as the FGLair app shows it, for example `62.6`. Unknown while there is no error.
 - **Re-read all properties:** asks the unit for every value again.
 - Raw sensors for other properties the unit reports, disabled by default.
 
