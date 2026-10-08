@@ -21,7 +21,7 @@ With debug logging on, a hung adapter shows `registration failed: TimeoutError()
 
 ## Give the unit a fixed IP address
 
-Home Assistant reaches the unit at the IP address saved when it was added. Reserve that address for the adapter in your router (often called a DHCP reservation or static lease), so it keeps the same one after a power cut or router restart. The AP-WF3E shows up in the router's device list with a hostname starting with `AP-WF`.
+Home Assistant reaches the unit at the IP address saved when it was added. Reserve that address for the adapter in your router (often called a DHCP reservation or static lease), so it keeps the same one after a power cut or router restart. The adapter usually shows up in the router's device list with a hostname of `AP-WF…` (AP-WF3E and similar) or `AC-UTY-` followed by its MAC address (UTY adapters), unless it was renamed there.
 
 If the address changes anyway:
 
@@ -55,7 +55,9 @@ The integration uses Fujitsu's own names: the remote's fan button cycles AUTO, H
 
 ## Can it show whether the unit is heating, cooling or defrosting?
 
-Not yet. The unit does not seem to report this over the local connection: its `op_status` value stays 0 while cooling on the AP-WF3E. If you find a value that changes with what the unit is doing, please open an issue with diagnostics taken while it runs.
+Not yet. The unit does not push such a value when it changes, so the integration now reads the two candidates, `op_status` and `monitor1`, every minute. On an AP-WF3E, `op_status` stayed 0 both while the compressor ran and after it stopped, while one field of `monitor1` went from 1 to 0. That is a single sample, so it is not used yet.
+
+To help, take diagnostics twice in the same mode: once while the compressor runs (cold or hot air comes out) and once after it stops (raise the target above the room temperature when cooling, or lower it when heating). Press **Re-read all properties** on the device page and wait about 10 seconds before each download, then attach both files to an issue and say what the unit was doing.
 
 ## Can I use another integration at the same time?
 

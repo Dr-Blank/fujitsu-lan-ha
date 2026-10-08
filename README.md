@@ -4,7 +4,7 @@ Home Assistant integration that controls Fujitsu air conditioners with an FGLair
 
 ## Supported adapters
 
-Tested on the AP-WF3E adapter. Other FGLair Wi-Fi adapters speak the same protocol and should work without changes: the integration reads which modes, fan speeds and louvres your unit has from the unit itself.
+Tested on the AP-WF3E adapter, and reported working on the UTY-TFSXW1 ([#1](https://github.com/Dr-Blank/fujitsu-lan-ha/issues/1)). Other FGLair Wi-Fi adapters speak the same protocol and should work without changes: the integration reads which modes, fan speeds and louvres your unit has from the unit itself.
 
 If you try it with another adapter, please [open an issue](https://github.com/Dr-Blank/fujitsu-lan-ha/issues) saying whether it works. Include the adapter model (printed on the adapter, for example AP-WF3E or UTY-TFSXF3), your indoor unit model, and the diagnostics file from the device page. Working reports help as much as broken ones.
 
@@ -105,7 +105,7 @@ To change the callback address later, for example after moving Home Assistant to
 - **IR remote louvre changes are not reported.** The unit reports mode and temperature changes made with the remote, but not louvre changes. The louvre state updates the next time it is read, for example with **Re-read all properties**.
 - **Timers are not supported yet.**
 - **The Wi-Fi adapter may stop answering.** Seen once on an AP-WF3E: it stopped answering on the network until the unit was switched off at the breaker. A UTY-TFSXW1 user reported something similar while adding a unit. The cause is not known yet. See [The unit shows as unavailable](docs/faq.md#the-unit-shows-as-unavailable).
-- **No heating / cooling / defrost activity.** The unit does not appear to report what it is doing over the local connection.
+- **No heating / cooling / defrost activity yet.** No value the unit reports over the local connection has been confirmed to follow what it is doing. One candidate is being checked; see the [FAQ](docs/faq.md#can-it-show-whether-the-unit-is-heating-cooling-or-defrosting).
 
 ## Troubleshooting
 
