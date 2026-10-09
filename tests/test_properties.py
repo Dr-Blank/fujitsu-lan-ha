@@ -81,18 +81,34 @@ def test_raw_int(value: Any, expected: int | None) -> None:
 @pytest.mark.parametrize(
     ("raw", "code"),
     [
+        pytest.param(1, "01", id="one"),
+        pytest.param(10, "0A", id="hex_letter_low"),
+        pytest.param(11, "0b", id="lower_b"),
+        pytest.param(13, "0d", id="lower_d"),
+        pytest.param(0xBD, "bd", id="lower_both"),
+        pytest.param(159, "9F", id="upper_f"),
+        pytest.param(255, "FF", id="largest_short"),
+        pytest.param(273, "11.1", id="smallest_long"),
+        pytest.param(283, "11.C", id="glyph_c"),
         pytest.param(1574, "62.6", id="outdoor_pcb"),
         pytest.param("1574", "62.6", id="string"),
-        pytest.param(0xA11, "A1.1", id="hex_letter"),
-        # No real code is this low; padded like every code the app shows.
-        pytest.param(0x5, "00.5", id="padded"),
+        pytest.param(0xA11, "A1.1", id="glyph_a"),
+        pytest.param(0x100, "10.0", id="long_zero_nibbles"),
+        pytest.param(4061, "UJ.J", id="glyph_u_and_j"),
+        pytest.param(0xEBE, "PC.P", id="glyph_p"),
+        pytest.param(4095, "UU.U", id="largest"),
         pytest.param(0, None, id="no_error"),
+        pytest.param(-1, None, id="negative"),
         pytest.param(65535, None, id="not_applicable"),
         pytest.param(None, None, id="missing"),
+        pytest.param("garbage", None, id="garbage"),
     ],
 )
 def test_decode_error_code(raw: Any, code: str | None) -> None:
-    """The error code's hex digits are the code the FGLair app shows."""
+    """Error codes read as the FGLair app shows them.
+
+    Below 256, two hex digits; from 256, a 7-segment glyph per hex digit.
+    """
     assert decode_error_code(raw) == code
 
 

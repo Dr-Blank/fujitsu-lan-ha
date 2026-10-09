@@ -170,6 +170,10 @@ class Capability(IntFlag):
     COIL_DRY = 1 << 18
 
 
+# Display glyph of each nibble of an error code from 256 up.
+SEVEN_SEGMENT = "0123456789ACFJPU"
+
+
 def is_reported(value: Any) -> bool:
     """Whether the unit gave a real value, not nothing or the sentinel."""
     return value is not None and str(value) != str(NOT_APPLICABLE)
@@ -212,13 +216,19 @@ def encode_setpoint(celsius: float) -> int:
 
 
 def decode_error_code(value: Any) -> str | None:
-    """Error code as the FGLair app shows it: 1574 (0x626) is `62.6`.
+    """Error code as the FGLair app shows it: 11 is `0b`, 1574 (0x626) is `62.6`.
 
-    The hex digits are the code, the last one after the dot. 0 means no error.
+    Below 256, two hex digits with b and d lower case. From 256, a 7-segment
+    glyph per nibble, the last one after the dot. 0 means no error.
     """
-    if not (raw := raw_int(value)):
+    if (raw := raw_int(value)) is None or raw <= 0:
         return None
-    return f"{raw >> 4:02X}.{raw & 0xF:X}"
+    if raw < 0x100:
+        return f"{raw:02X}".replace("B", "b").replace("D", "d")
+    return (
+        f"{SEVEN_SEGMENT[(raw >> 8) & 0xF]}{SEVEN_SEGMENT[(raw >> 4) & 0xF]}"
+        f".{SEVEN_SEGMENT[raw & 0xF]}"
+    )
 
 
 def decode_firmware_version(value: Any) -> str:
