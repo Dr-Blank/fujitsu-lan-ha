@@ -143,23 +143,40 @@
           },
           "swing_horizontal_mode": {
             "state": {
-              "center": "Center",
-              "left": "Left",
-              "left_center": "Left of center",
-              "right": "Right",
-              "right_center": "Right of center"
-            }
-          },
-          "swing_mode": {
-            "state": {
-              "position_1": "Position 1",
+              "position_1": "Position 1 (left)",
+              "position_10": "Position 10",
+              "position_11": "Position 11",
+              "position_12": "Position 12",
+              "position_13": "Position 13",
+              "position_14": "Position 14",
+              "position_15": "Position 15",
               "position_2": "Position 2",
               "position_3": "Position 3",
               "position_4": "Position 4",
               "position_5": "Position 5",
               "position_6": "Position 6",
               "position_7": "Position 7",
-              "position_8": "Position 8"
+              "position_8": "Position 8",
+              "position_9": "Position 9"
+            }
+          },
+          "swing_mode": {
+            "state": {
+              "position_1": "Position 1 (top)",
+              "position_10": "Position 10",
+              "position_11": "Position 11",
+              "position_12": "Position 12",
+              "position_13": "Position 13",
+              "position_14": "Position 14",
+              "position_15": "Position 15",
+              "position_2": "Position 2",
+              "position_3": "Position 3",
+              "position_4": "Position 4",
+              "position_5": "Position 5",
+              "position_6": "Position 6",
+              "position_7": "Position 7",
+              "position_8": "Position 8",
+              "position_9": "Position 9"
             }
           }
         }

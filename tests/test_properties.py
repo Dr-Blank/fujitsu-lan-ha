@@ -5,14 +5,20 @@ from typing import Any
 import pytest
 
 from custom_components.fglair_local.properties import (
+    Positions,
     decode_adapter_model,
     decode_error_code,
     decode_firmware_version,
+    decode_horizontal_positions,
     decode_sensed_temperature,
     decode_setpoint,
+    decode_vertical_positions,
     encode_setpoint,
     raw_int,
 )
+
+FIVE = tuple(f"position_{n}" for n in range(1, 6))
+THREE = FIVE[:3]
 
 
 @pytest.mark.parametrize(
@@ -110,6 +116,95 @@ def test_decode_error_code(raw: Any, code: str | None) -> None:
     Below 256, two hex digits; from 256, a 7-segment glyph per hex digit.
     """
     assert decode_error_code(raw) == code
+
+
+@pytest.mark.parametrize(
+    ("num_dir", "labels"),
+    [
+        pytest.param(4, tuple(f"position_{n}" for n in range(1, 5)), id="four"),
+        pytest.param(1, ("position_1",), id="one"),
+        pytest.param(15, tuple(f"position_{n}" for n in range(1, 16)), id="fifteen"),
+        pytest.param("6", tuple(f"position_{n}" for n in range(1, 7)), id="string"),
+        pytest.param(0, (), id="zero"),
+        pytest.param(-1, (), id="negative"),
+        pytest.param(16, (), id="too_many"),
+        pytest.param(65535, (), id="not_applicable"),
+        pytest.param(None, (), id="missing"),
+    ],
+)
+def test_decode_vertical_positions(num_dir: Any, labels: tuple[str, ...]) -> None:
+    """Vertical positions are numbered from the top, up to 15 of them."""
+    assert decode_vertical_positions(num_dir) == Positions(labels)
+
+
+@pytest.mark.parametrize(
+    ("num_dir", "positions"),
+    [
+        pytest.param(5, Positions(FIVE, reverse=True), id="five_from_right"),
+        pytest.param(21, Positions(FIVE), id="five_from_left"),
+        pytest.param(3, Positions(THREE, reverse=True), id="three_from_right"),
+        pytest.param(19, Positions(THREE), id="three_from_left"),
+        pytest.param(2, Positions(FIVE[:2], reverse=True), id="two_from_right"),
+        pytest.param(
+            31,
+            Positions(tuple(f"position_{n}" for n in range(1, 16))),
+            id="fifteen_from_left",
+        ),
+        pytest.param(0, Positions(), id="zero"),
+        pytest.param(16, Positions(), id="sixteen"),
+        pytest.param(32, Positions(), id="too_many"),
+        pytest.param(-1, Positions(), id="negative"),
+        pytest.param(65535, Positions(), id="not_applicable"),
+        pytest.param(None, Positions(), id="missing"),
+    ],
+)
+def test_decode_horizontal_positions(num_dir: Any, positions: Positions) -> None:
+    """1-15 count from the right, 17-31 from the left; labels read left to right."""
+    assert decode_horizontal_positions(num_dir) == positions
+
+
+@pytest.mark.parametrize(
+    ("positions", "direction", "label"),
+    [
+        pytest.param(Positions(FIVE), 1, "position_1", id="from_left_first"),
+        pytest.param(Positions(FIVE), 5, "position_5", id="from_left_last"),
+        pytest.param(
+            Positions(FIVE, reverse=True), 1, "position_5", id="from_right_first"
+        ),
+        pytest.param(
+            Positions(FIVE, reverse=True), 2, "position_4", id="from_right_second"
+        ),
+        pytest.param(
+            Positions(FIVE, reverse=True), 5, "position_1", id="from_right_last"
+        ),
+        pytest.param(
+            Positions(THREE, reverse=True), 3, "position_1", id="three_from_right"
+        ),
+    ],
+)
+def test_position_direction_round_trip(
+    positions: Positions, direction: int, label: str
+) -> None:
+    """A direction value and its label map both ways."""
+    assert positions.label(direction) == label
+    assert positions.direction(label) == direction
+
+
+@pytest.mark.parametrize(
+    ("positions", "direction"),
+    [
+        pytest.param(Positions(FIVE), 0, id="zero"),
+        pytest.param(Positions(FIVE), 6, id="beyond"),
+        pytest.param(Positions(FIVE, reverse=True), 6, id="beyond_from_right"),
+        pytest.param(Positions(FIVE), None, id="missing"),
+        pytest.param(Positions(), 1, id="no_positions"),
+    ],
+)
+def test_position_label_out_of_range(
+    positions: Positions, direction: int | None
+) -> None:
+    """A direction with no position has no label."""
+    assert positions.label(direction) is None
 
 
 @pytest.mark.parametrize(

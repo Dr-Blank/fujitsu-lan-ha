@@ -48,9 +48,8 @@ from custom_components.fglair_local.climate import DEFAULT_SETPOINT
 from custom_components.fglair_local.const import DOMAIN
 from custom_components.fglair_local.properties import (
     EXTRA_PROPERTIES,
-    HORIZONTAL_POSITIONS,
+    POSITIONS,
     PRIME_PROPERTIES,
-    VERTICAL_POSITIONS,
 )
 
 PRIMED = (*PRIME_PROPERTIES, *EXTRA_PROPERTIES)
@@ -60,16 +59,12 @@ SWING_FEATURES = (
     ClimateEntityFeature.SWING_MODE | ClimateEntityFeature.SWING_HORIZONTAL_MODE
 )
 NO_SWING = ClimateEntityFeature(0)
-VERTICAL_MODES = ["on", "off", *VERTICAL_POSITIONS[:4]]
-HORIZONTAL_MODES = [
-    "on",
-    "off",
-    "left",
-    "left_center",
-    "center",
-    "right_center",
-    "right",
-]
+# Without a position count, a louvre can only swing or stop.
+SWING_ONLY = ["on", "off"]
+# Counts from UNIT_DATAPOINTS: 4 vertical, 5 horizontal from the left.
+LOUVRE_COUNTS = {"af_vertical_num_dir": 4, "af_horizontal_num_dir": 21}
+VERTICAL_MODES = ["on", "off", *POSITIONS[:4]]
+HORIZONTAL_MODES = ["on", "off", *POSITIONS[:5]]
 
 OFF_WITHOUT_SETPOINT = {**UNIT_DATAPOINTS, "operation_mode": 0, "adjust_temperature": 0}
 RESTORED_SETPOINT = 21.5
@@ -101,7 +96,7 @@ async def test_state_from_datapoints(hass: HomeAssistant, unit: SimulatedUnit) -
     assert state.attributes[ATTR_CURRENT_TEMPERATURE] == 28.5
     assert state.attributes[ATTR_FAN_MODE] == "auto"
     assert state.attributes[ATTR_SWING_MODE] == "on"
-    assert state.attributes[ATTR_SWING_HORIZONTAL_MODE] == "right"
+    assert state.attributes[ATTR_SWING_HORIZONTAL_MODE] == "position_5"
 
 
 @pytest.mark.parametrize(
@@ -245,14 +240,21 @@ async def test_set_temperature_with_mode(
     [
         pytest.param(
             {"device_capabilities": 0b1100_0000_0001},
-            VERTICAL_MODES,
-            HORIZONTAL_MODES,
+            SWING_ONLY,
+            SWING_ONLY,
             SWING_FEATURES,
             id="both_axes",
         ),
         pytest.param(
-            {"device_capabilities": 0b0100_0000_0001},
+            {"device_capabilities": 0b1100_0000_0001, **LOUVRE_COUNTS},
             VERTICAL_MODES,
+            HORIZONTAL_MODES,
+            SWING_FEATURES,
+            id="both_axes_with_counts",
+        ),
+        pytest.param(
+            {"device_capabilities": 0b0100_0000_0001},
+            SWING_ONLY,
             None,
             ClimateEntityFeature.SWING_MODE,
             id="vertical_only",
@@ -260,7 +262,7 @@ async def test_set_temperature_with_mode(
         pytest.param(
             {"device_capabilities": 0b1000_0000_0001},
             None,
-            HORIZONTAL_MODES,
+            SWING_ONLY,
             ClimateEntityFeature.SWING_HORIZONTAL_MODE,
             id="horizontal_only",
         ),
@@ -286,7 +288,7 @@ async def test_set_temperature_with_mode(
         pytest.param({}, None, None, NO_SWING, id="unknown_nothing_reported"),
         pytest.param(
             {"af_vertical_swing": 0},
-            VERTICAL_MODES,
+            SWING_ONLY,
             None,
             ClimateEntityFeature.SWING_MODE,
             id="unknown_vertical_reported",
@@ -294,7 +296,7 @@ async def test_set_temperature_with_mode(
         pytest.param(
             {"af_horizontal_swing": 1},
             None,
-            HORIZONTAL_MODES,
+            SWING_ONLY,
             ClimateEntityFeature.SWING_HORIZONTAL_MODE,
             id="unknown_horizontal_reported",
         ),
@@ -307,7 +309,7 @@ async def test_set_temperature_with_mode(
         ),
         pytest.param(
             {"device_capabilities": 65535, "af_vertical_swing": 1},
-            VERTICAL_MODES,
+            SWING_ONLY,
             None,
             ClimateEntityFeature.SWING_MODE,
             id="sentinel_capabilities",
@@ -338,55 +340,71 @@ async def test_swing_axes_offered(
 
 
 @pytest.mark.parametrize(
-    ("datapoints", "swing_modes"),
+    ("num_dir", "swing_modes"),
     [
-        pytest.param({}, VERTICAL_MODES, id="no_count"),
-        pytest.param({"af_vertical_num_dir": 4}, VERTICAL_MODES, id="four"),
-        pytest.param(
-            {"af_vertical_num_dir": 6},
-            ["on", "off", *(f"position_{n}" for n in range(1, 7))],
-            id="six",
-        ),
-        pytest.param(
-            {"af_vertical_num_dir": 8},
-            ["on", "off", *(f"position_{n}" for n in range(1, 9))],
-            id="eight",
-        ),
-        pytest.param(
-            {"af_vertical_num_dir": 3},
-            ["on", "off", "position_1", "position_2", "position_3"],
-            id="three",
-        ),
-        pytest.param({"af_vertical_num_dir": 1}, ["on", "off", "position_1"], id="one"),
-        pytest.param({"af_vertical_num_dir": 0}, VERTICAL_MODES, id="zero"),
-        pytest.param({"af_vertical_num_dir": -1}, VERTICAL_MODES, id="negative"),
-        pytest.param({"af_vertical_num_dir": 9}, VERTICAL_MODES, id="too_many"),
-        pytest.param({"af_vertical_num_dir": 65535}, VERTICAL_MODES, id="sentinel"),
-        pytest.param(
-            # The horizontal count is not the number of positions.
-            {"af_horizontal_num_dir": 2},
-            VERTICAL_MODES,
-            id="horizontal_count_ignored",
-        ),
+        pytest.param(4, VERTICAL_MODES, id="four"),
+        pytest.param(6, ["on", "off", *POSITIONS[:6]], id="six"),
+        pytest.param(3, ["on", "off", *POSITIONS[:3]], id="three"),
+        pytest.param(1, ["on", "off", "position_1"], id="one"),
+        pytest.param(15, ["on", "off", *POSITIONS], id="fifteen"),
+        pytest.param(0, SWING_ONLY, id="zero"),
+        pytest.param(-1, SWING_ONLY, id="negative"),
+        pytest.param(16, SWING_ONLY, id="too_many"),
+        pytest.param(65535, SWING_ONLY, id="sentinel"),
     ],
 )
-async def test_positions_follow_count(
+async def test_vertical_positions_follow_count(
     hass: HomeAssistant,
     unit: SimulatedUnit,
-    datapoints: dict[str, int],
+    num_dir: int,
     swing_modes: list[str],
 ) -> None:
-    """Vertical positions follow a plausible count, and default to 4.
-
-    Horizontal ones never follow a count.
-    """
+    """Vertical positions follow a count from 1 to 15; otherwise there are none."""
     await unit.key_exchange()
-    await unit.push_all({**CAPABILITIES, **datapoints})
+    await unit.push_all({**CAPABILITIES, "af_vertical_num_dir": num_dir})
 
     state = hass.states.get(CLIMATE_ENTITY_ID)
     assert state is not None
     assert state.attributes[ATTR_SWING_MODES] == swing_modes
-    assert state.attributes[ATTR_SWING_HORIZONTAL_MODES] == HORIZONTAL_MODES
+    # The vertical count says nothing about the horizontal louvre.
+    assert state.attributes[ATTR_SWING_HORIZONTAL_MODES] == SWING_ONLY
+
+
+@pytest.mark.parametrize(
+    ("num_dir", "swing_horizontal_modes"),
+    [
+        pytest.param(5, HORIZONTAL_MODES, id="five_from_right"),
+        pytest.param(21, HORIZONTAL_MODES, id="five_from_left"),
+        pytest.param(3, ["on", "off", *POSITIONS[:3]], id="three_from_right"),
+        pytest.param(19, ["on", "off", *POSITIONS[:3]], id="three_from_left"),
+        pytest.param(2, ["on", "off", *POSITIONS[:2]], id="two_from_right"),
+        pytest.param(20, ["on", "off", *POSITIONS[:4]], id="four_from_left"),
+        pytest.param(15, ["on", "off", *POSITIONS], id="fifteen_from_right"),
+        pytest.param(31, ["on", "off", *POSITIONS], id="fifteen_from_left"),
+        pytest.param(0, SWING_ONLY, id="zero"),
+        pytest.param(16, SWING_ONLY, id="sixteen"),
+        pytest.param(32, SWING_ONLY, id="too_many"),
+        pytest.param(-1, SWING_ONLY, id="negative"),
+        pytest.param(65535, SWING_ONLY, id="sentinel"),
+    ],
+)
+async def test_horizontal_positions_follow_count(
+    hass: HomeAssistant,
+    unit: SimulatedUnit,
+    num_dir: int,
+    swing_horizontal_modes: list[str],
+) -> None:
+    """Horizontal positions follow the count, listed left to right either way.
+
+    1-15 count from the right, 17-31 from the left; anything else gives none.
+    """
+    await unit.key_exchange()
+    await unit.push_all({**CAPABILITIES, "af_horizontal_num_dir": num_dir})
+
+    state = hass.states.get(CLIMATE_ENTITY_ID)
+    assert state is not None
+    assert state.attributes[ATTR_SWING_HORIZONTAL_MODES] == swing_horizontal_modes
+    assert state.attributes[ATTR_SWING_MODES] == SWING_ONLY
 
 
 @pytest.mark.parametrize(
@@ -411,7 +429,7 @@ async def test_positions_follow_count(
                 "af_horizontal_direction": 3,
             },
             "position_2",
-            "center",
+            "position_3",
             id="held",
         ),
         pytest.param(
@@ -422,7 +440,7 @@ async def test_positions_follow_count(
                 "af_horizontal_direction": 5,
             },
             "position_4",
-            "right",
+            "position_5",
             id="held_at_last",
         ),
         pytest.param(
@@ -432,11 +450,84 @@ async def test_positions_follow_count(
                 "af_vertical_num_dir": 3,
                 "af_horizontal_swing": 0,
                 "af_horizontal_direction": 5,
-                "af_horizontal_num_dir": 2,
+                "af_horizontal_num_dir": 19,
             },
             "off",
-            "right",
+            "off",
             id="beyond_count",
+        ),
+        pytest.param(
+            {
+                "af_horizontal_swing": 0,
+                "af_horizontal_direction": 1,
+                "af_horizontal_num_dir": 5,
+            },
+            None,
+            "position_5",
+            id="from_right_first",
+        ),
+        pytest.param(
+            {
+                "af_horizontal_swing": 0,
+                "af_horizontal_direction": 2,
+                "af_horizontal_num_dir": 5,
+            },
+            None,
+            "position_4",
+            id="from_right_second",
+        ),
+        pytest.param(
+            {
+                "af_horizontal_swing": 0,
+                "af_horizontal_direction": 5,
+                "af_horizontal_num_dir": 5,
+            },
+            None,
+            "position_1",
+            id="from_right_last",
+        ),
+        pytest.param(
+            {
+                "af_horizontal_swing": 0,
+                "af_horizontal_direction": 1,
+                "af_horizontal_num_dir": 4,
+            },
+            None,
+            "position_4",
+            id="from_right_numbered",
+        ),
+        pytest.param(
+            {
+                "af_horizontal_swing": 0,
+                "af_horizontal_direction": 1,
+                "af_horizontal_num_dir": 19,
+            },
+            None,
+            "position_1",
+            id="from_left_three",
+        ),
+        pytest.param(
+            {
+                "af_horizontal_swing": 0,
+                "af_horizontal_direction": 2,
+                "af_horizontal_num_dir": 20,
+            },
+            None,
+            "position_2",
+            id="from_left_numbered",
+        ),
+        pytest.param(
+            {
+                "af_vertical_swing": 0,
+                "af_vertical_direction": 2,
+                "af_vertical_num_dir": 0,
+                "af_horizontal_swing": 0,
+                "af_horizontal_direction": 3,
+                "af_horizontal_num_dir": 0,
+            },
+            "off",
+            "off",
+            id="no_positions",
         ),
         pytest.param(
             {
@@ -552,7 +643,7 @@ async def test_swing_state(
     Swing is not claimed to be off before the unit reports it.
     """
     await unit.key_exchange()
-    await unit.push_all({**CAPABILITIES, **datapoints})
+    await unit.push_all({**CAPABILITIES, **LOUVRE_COUNTS, **datapoints})
 
     state = hass.states.get(CLIMATE_ENTITY_ID)
     assert state is not None
@@ -643,20 +734,78 @@ async def test_swing_state(
             {ATTR_SWING_HORIZONTAL_MODE: "off"},
             [("af_horizontal_swing", 0, "boolean")],
             ATTR_SWING_HORIZONTAL_MODE,
-            "right",
+            "position_5",
             id="horizontal_off",
         ),
         pytest.param(
             {"af_horizontal_swing": 1},
             SERVICE_SET_SWING_HORIZONTAL_MODE,
-            {ATTR_SWING_HORIZONTAL_MODE: "left_center"},
+            {ATTR_SWING_HORIZONTAL_MODE: "position_2"},
             [
                 ("af_horizontal_swing", 0, "boolean"),
                 ("af_horizontal_direction", 2, "integer"),
             ],
             ATTR_SWING_HORIZONTAL_MODE,
-            "left_center",
+            "position_2",
             id="horizontal_position",
+        ),
+        pytest.param(
+            {"af_horizontal_swing": 1, "af_horizontal_num_dir": 5},
+            SERVICE_SET_SWING_HORIZONTAL_MODE,
+            {ATTR_SWING_HORIZONTAL_MODE: "position_1"},
+            [
+                ("af_horizontal_swing", 0, "boolean"),
+                ("af_horizontal_direction", 5, "integer"),
+            ],
+            ATTR_SWING_HORIZONTAL_MODE,
+            "position_1",
+            id="horizontal_from_right_leftmost",
+        ),
+        pytest.param(
+            {"af_horizontal_swing": 1, "af_horizontal_num_dir": 5},
+            SERVICE_SET_SWING_HORIZONTAL_MODE,
+            {ATTR_SWING_HORIZONTAL_MODE: "position_2"},
+            [
+                ("af_horizontal_swing", 0, "boolean"),
+                ("af_horizontal_direction", 4, "integer"),
+            ],
+            ATTR_SWING_HORIZONTAL_MODE,
+            "position_2",
+            id="horizontal_from_right_second",
+        ),
+        pytest.param(
+            {"af_horizontal_swing": 1, "af_horizontal_num_dir": 5},
+            SERVICE_SET_SWING_HORIZONTAL_MODE,
+            {ATTR_SWING_HORIZONTAL_MODE: "position_5"},
+            [
+                ("af_horizontal_swing", 0, "boolean"),
+                ("af_horizontal_direction", 1, "integer"),
+            ],
+            ATTR_SWING_HORIZONTAL_MODE,
+            "position_5",
+            id="horizontal_from_right_rightmost",
+        ),
+        pytest.param(
+            {"af_horizontal_swing": 1, "af_horizontal_num_dir": 19},
+            SERVICE_SET_SWING_HORIZONTAL_MODE,
+            {ATTR_SWING_HORIZONTAL_MODE: "position_3"},
+            [
+                ("af_horizontal_swing", 0, "boolean"),
+                ("af_horizontal_direction", 3, "integer"),
+            ],
+            ATTR_SWING_HORIZONTAL_MODE,
+            "position_3",
+            id="horizontal_from_left_three",
+        ),
+        pytest.param(
+            {"af_horizontal_swing": 1, "af_horizontal_num_dir": 5},
+            SERVICE_SET_SWING_HORIZONTAL_MODE,
+            {ATTR_SWING_HORIZONTAL_MODE: "off"},
+            [("af_horizontal_swing", 0, "boolean")],
+            ATTR_SWING_HORIZONTAL_MODE,
+            # Direction 5 is the leftmost when counted from the right.
+            "position_1",
+            id="horizontal_off_from_right",
         ),
     ],
 )
@@ -712,13 +861,18 @@ async def test_set_swing_mode(
         ),
         pytest.param(
             SERVICE_SET_SWING_MODE,
-            {ATTR_SWING_MODE: "left"},
-            id="horizontal_position_on_vertical",
+            {ATTR_SWING_MODE: "on_right"},
+            id="unknown_vertical",
         ),
         pytest.param(
             SERVICE_SET_SWING_HORIZONTAL_MODE,
-            {ATTR_SWING_HORIZONTAL_MODE: "position_1"},
-            id="vertical_position_on_horizontal",
+            {ATTR_SWING_HORIZONTAL_MODE: "position_6"},
+            id="beyond_horizontal_count",
+        ),
+        pytest.param(
+            SERVICE_SET_SWING_HORIZONTAL_MODE,
+            {ATTR_SWING_HORIZONTAL_MODE: "left"},
+            id="old_named_horizontal_position",
         ),
         pytest.param(
             SERVICE_SET_SWING_MODE, {ATTR_SWING_MODE: "position_4"}, id="beyond_count"
@@ -750,14 +904,60 @@ async def test_invalid_swing_mode_rejected(
     )
 
 
-async def test_count_read_before_direction(unit: SimulatedUnit) -> None:
-    """A direction past 4 reads as off until the count says it exists."""
+@pytest.mark.parametrize(
+    ("service", "data"),
+    [
+        pytest.param(
+            SERVICE_SET_SWING_MODE, {ATTR_SWING_MODE: "position_1"}, id="vertical"
+        ),
+        pytest.param(
+            SERVICE_SET_SWING_HORIZONTAL_MODE,
+            {ATTR_SWING_HORIZONTAL_MODE: "position_1"},
+            id="horizontal",
+        ),
+    ],
+)
+async def test_position_rejected_without_count(
+    hass: HomeAssistant, unit: SimulatedUnit, service: str, data: dict[str, str]
+) -> None:
+    """A unit that reports no positions only offers swinging on and off."""
+    await unit.key_exchange()
+    await unit.push_all(
+        {**UNIT_DATAPOINTS, "af_vertical_num_dir": 0, "af_horizontal_num_dir": 0}
+    )
+
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            CLIMATE_DOMAIN,
+            service,
+            {ATTR_ENTITY_ID: CLIMATE_ENTITY_ID, **data},
+            blocking=True,
+        )
+
+    assert read_resource(await unit.fetch_command()) == (
+        f"property.json?name={PRIMED[0]}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("count", "direction"),
+    [
+        pytest.param("af_vertical_num_dir", "af_vertical_direction", id="vertical"),
+        pytest.param(
+            "af_horizontal_num_dir", "af_horizontal_direction", id="horizontal"
+        ),
+    ],
+)
+async def test_count_read_before_direction(
+    unit: SimulatedUnit, count: str, direction: str
+) -> None:
+    """A direction reads as off until the count says it exists."""
     await unit.key_exchange()
 
     resources = [read_resource(command) for command in await unit.drain()]
 
-    assert resources.index("property.json?name=af_vertical_num_dir") < (
-        resources.index("property.json?name=af_vertical_direction")
+    assert resources.index(f"property.json?name={count}") < (
+        resources.index(f"property.json?name={direction}")
     )
 
 
@@ -781,28 +981,29 @@ async def test_numbered_position_follows_late_count(
     assert state.attributes[ATTR_SWING_MODES] == [
         "on",
         "off",
-        *VERTICAL_POSITIONS[:6],
+        *POSITIONS[:6],
     ]
 
 
 @pytest.mark.parametrize(
-    ("attribute", "positions"),
+    ("attribute", "first"),
     [
-        pytest.param(ATTR_SWING_MODE, VERTICAL_POSITIONS, id="vertical"),
-        pytest.param(ATTR_SWING_HORIZONTAL_MODE, HORIZONTAL_POSITIONS, id="horizontal"),
+        pytest.param(ATTR_SWING_MODE, "Position 1 (top)", id="vertical"),
+        pytest.param(ATTR_SWING_HORIZONTAL_MODE, "Position 1 (left)", id="horizontal"),
     ],
 )
 async def test_positions_are_translated(
-    hass: HomeAssistant, attribute: str, positions: tuple[str, ...]
+    hass: HomeAssistant, attribute: str, first: str
 ) -> None:
-    """Every louvre position has a name to show."""
+    """Every louvre position has a name, and the first says which end it is."""
     translations = await async_get_translations(hass, "en", "entity", [DOMAIN])
 
     prefix = (
         f"component.{DOMAIN}.entity.climate.air_conditioner"
         f".state_attributes.{attribute}.state"
     )
-    assert {f"{prefix}.{position}" for position in positions} <= translations.keys()
+    assert {f"{prefix}.{position}" for position in POSITIONS} <= translations.keys()
+    assert translations[f"{prefix}.position_1"] == first
 
 
 @pytest.mark.parametrize(

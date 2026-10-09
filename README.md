@@ -88,8 +88,8 @@ To change the callback address later, for example after moving Home Assistant to
 ## Entities
 
 - **Climate:** on/off, HVAC mode, target temperature and fan speed (including quiet).
-  - **Vertical louvre** (swing mode): swing, stop, or hold at a fixed step: position 1 (the highest) to the number of steps the unit reports, up to 8. Units that do not report a usable count get 4.
-  - **Horizontal louvre** (horizontal swing mode), on units that have one: swing, stop, or hold at left, left of center, center, right of center or right.
+  - **Vertical louvre** (swing mode): swing, stop, or hold at a fixed step: position 1 (the highest) to the number of steps the unit reports, up to 15. Units that report no count can only swing or stop.
+  - **Horizontal louvre** (horizontal swing mode), on units that have one: swing, stop, or hold at a fixed step: position 1 (the leftmost) to the number of steps the unit reports, up to 15.
 - **Switches:** economy, powerful, outdoor unit low noise, energy saving fan and human sensor, for the features your unit reports. Other on/off settings the unit reports, such as the Wi-Fi LED, are configuration entities.
 - **Occupancy:** the unit's human sensor.
 - **Outdoor temperature:** created once the unit reports a reading.

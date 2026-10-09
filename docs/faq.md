@@ -55,7 +55,7 @@ On 0.2.0 and older, a change the unit did not confirm was undone until the read-
 
 ## Why is the lowest fan speed "quiet" and the louvre positions "position 1" to "position N"?
 
-The integration uses Fujitsu's own names: the remote's fan button cycles AUTO, HIGH, MED, LOW and QUIET, and the unit reports that speed as quiet. Louvre positions are numbered from 1, the highest, to the number of steps your unit reports. Other integrations use other names (`diffuse`, `Vertical_1`, `off`); automations moved from them need the names here: `quiet` and `position_1` to `position_N`.
+The integration uses Fujitsu's own names: the remote's fan button cycles AUTO, HIGH, MED, LOW and QUIET, and the unit reports that speed as quiet. Louvre positions are numbered from 1 to the number of steps your unit reports: vertical from the top, horizontal from the left. Up to 0.2.3 the horizontal positions were named `left`, `left_center`, `center`, `right_center` and `right`; from 0.2.4 they are `position_1` to `position_5`, so update automations and scenes that use the old names. Other integrations use other names (`diffuse`, `Vertical_1`, `off`); automations moved from them need the names here: `quiet` and `position_1` to `position_N`.
 
 ## Can it show whether the unit is heating, cooling or defrosting?
 

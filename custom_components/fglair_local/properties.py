@@ -4,6 +4,7 @@ Encode and decode are separate on purpose: every temperature bug in the
 deiger/AirCon add-on came from one "precision" factor applied both ways.
 """
 
+from dataclasses import dataclass
 from enum import IntEnum, IntFlag
 from typing import Any
 
@@ -31,11 +32,10 @@ OP_STATUS = "op_status"
 MONITOR1 = "monitor1"
 POWERFUL_MODE = "powerful_mode"
 
-# Louvre positions by `af_*_direction` value, from 1. Tested on AP-WF3E; the
-# unit's `af_horizontal_num_dir` (21) is not the position count.
-# Vertical: 1 the highest. AP-WF3E reports 4 positions, ASYG-KMCC 6.
-VERTICAL_POSITIONS = tuple(f"position_{n}" for n in range(1, 9))
-HORIZONTAL_POSITIONS = ("left", "left_center", "center", "right_center", "right")
+# Up to 15 positions per axis, numbered from the top or the left.
+# Vertical: AP-WF3E has 4, ASYG-KMCC 6. Horizontal: AP-WF3E has 5.
+MAX_POSITIONS = 15
+POSITIONS = tuple(f"position_{n}" for n in range(1, MAX_POSITIONS + 1))
 
 # On/off settings. Tested on AP-WF3E: economy_mode, outdoor_low_noise,
 # indoor_fan_control and human_det_auto_save.
@@ -229,6 +229,50 @@ def decode_error_code(value: Any) -> str | None:
         f"{SEVEN_SEGMENT[(raw >> 8) & 0xF]}{SEVEN_SEGMENT[(raw >> 4) & 0xF]}"
         f".{SEVEN_SEGMENT[raw & 0xF]}"
     )
+
+
+@dataclass(frozen=True)
+class Positions:
+    """Louvre positions in display order, and their `af_*_direction` values."""
+
+    labels: tuple[str, ...] = ()
+    # Direction 1 is the last label: horizontal louvres counted from the right.
+    reverse: bool = False
+
+    def label(self, direction: int | None) -> str | None:
+        """Label of a direction value, None when out of range."""
+        if direction is None or not 1 <= direction <= len(self.labels):
+            return None
+        return self.labels[-direction if self.reverse else direction - 1]
+
+    def direction(self, label: str) -> int:
+        """Direction value of a label."""
+        index = self.labels.index(label)
+        return len(self.labels) - index if self.reverse else index + 1
+
+
+def decode_vertical_positions(num_dir: Any) -> Positions:
+    """Vertical positions from `af_vertical_num_dir`: the count, from the top."""
+    if (count := raw_int(num_dir)) is None or not 1 <= count <= MAX_POSITIONS:
+        return Positions()
+    return Positions(POSITIONS[:count])
+
+
+def decode_horizontal_positions(num_dir: Any) -> Positions:
+    """Horizontal positions from `af_horizontal_num_dir`, from the left.
+
+    1-15: that many, direction 1 on the right. 17-31: n - 16, direction 1 on
+    the left (AP-WF3E reports 21). Anything else: none.
+    """
+    if (raw := raw_int(num_dir)) is None:
+        return Positions()
+    if 1 <= raw <= MAX_POSITIONS:
+        count, reverse = raw, True
+    elif 17 <= raw <= 16 + MAX_POSITIONS:
+        count, reverse = raw - 16, False
+    else:
+        return Positions()
+    return Positions(POSITIONS[:count], reverse)
 
 
 def decode_firmware_version(value: Any) -> str:

@@ -1,5 +1,6 @@
 """Climate entity for Fujitsu FGLair Local."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -30,18 +31,20 @@ from .properties import (
     DISPLAY_TEMPERATURE,
     FAN_SPEED,
     HORIZONTAL_DIRECTION,
-    HORIZONTAL_POSITIONS,
+    HORIZONTAL_NUM_DIR,
     HORIZONTAL_SWING,
     OPERATION_MODE,
     VERTICAL_DIRECTION,
     VERTICAL_NUM_DIR,
-    VERTICAL_POSITIONS,
     VERTICAL_SWING,
     Capability,
     FanSpeed,
     OpMode,
+    Positions,
+    decode_horizontal_positions,
     decode_sensed_temperature,
     decode_setpoint,
+    decode_vertical_positions,
     encode_setpoint,
     raw_int,
 )
@@ -96,33 +99,31 @@ class Louvre:
 
     swing: str
     direction: str
-    positions: tuple[str, ...]
     capability: Capability
     on_mode: str
     off_mode: str
-    # Property holding how many of `positions` this model has, when it is truthful.
-    count: str | None = None
-    # How many to offer when `count` is missing or implausible; None for all.
-    default_count: int | None = None
+    # Property describing the positions, and its decoder.
+    num_dir: str
+    decode: Callable[[Any], Positions]
 
 
 VERTICAL = Louvre(
     VERTICAL_SWING,
     VERTICAL_DIRECTION,
-    VERTICAL_POSITIONS,
     Capability.SWING_VERTICAL,
     SWING_ON,
     SWING_OFF,
     VERTICAL_NUM_DIR,
-    4,
+    decode_vertical_positions,
 )
 HORIZONTAL = Louvre(
     HORIZONTAL_SWING,
     HORIZONTAL_DIRECTION,
-    HORIZONTAL_POSITIONS,
     Capability.SWING_HORIZONTAL,
     SWING_HORIZONTAL_ON,
     SWING_HORIZONTAL_OFF,
+    HORIZONTAL_NUM_DIR,
+    decode_horizontal_positions,
 )
 
 
@@ -206,27 +207,21 @@ class FglairLocalClimate(FglairLocalEntity, RestoreEntity, ClimateEntity):
             return self._value(louvre.swing) is not None
         return louvre.capability in caps
 
-    def _positions(self, louvre: Louvre) -> tuple[str, ...]:
-        count = None if louvre.count is None else self._value(louvre.count)
-        if count is None or not 1 <= count <= len(louvre.positions):
-            count = louvre.default_count
-        return louvre.positions[:count]
+    def _positions(self, louvre: Louvre) -> Positions:
+        return louvre.decode(self.device.values.get(louvre.num_dir))
 
     def _modes(self, louvre: Louvre) -> list[str] | None:
         if not self._has(louvre):
             return None
-        return [louvre.on_mode, louvre.off_mode, *self._positions(louvre)]
+        return [louvre.on_mode, louvre.off_mode, *self._positions(louvre).labels]
 
     def _louvre_mode(self, louvre: Louvre) -> str | None:
         if (swing := self._value(louvre.swing)) is None:
             return None
         if swing:
             return louvre.on_mode
-        positions = self._positions(louvre)
-        position = self._value(louvre.direction)
-        if position is None or not 1 <= position <= len(positions):
-            return louvre.off_mode
-        return positions[position - 1]
+        label = self._positions(louvre).label(self._value(louvre.direction))
+        return louvre.off_mode if label is None else label
 
     def _set_louvre(self, louvre: Louvre, mode: str) -> None:
         if mode == louvre.on_mode:
@@ -238,7 +233,7 @@ class FglairLocalClimate(FglairLocalEntity, RestoreEntity, ClimateEntity):
         # Swing first: the position is where the louvre should end up.
         self.device.set_property(louvre.swing, 0, notify=False)
         self.device.set_property(
-            louvre.direction, self._positions(louvre).index(mode) + 1
+            louvre.direction, self._positions(louvre).direction(mode)
         )
 
     @property
