@@ -9,6 +9,8 @@ from homeassistant.core import HomeAssistant
 from . import SimulatedUnit
 from .const import OCCUPANCY_ENTITY_ID, PROBLEM_ENTITY_ID
 
+DEMAND_ENTITY_ID = "binary_sensor.air_conditioner_demand_response"
+
 
 @pytest.mark.parametrize(
     ("prop", "entity_id", "device_class", "value", "expected"),
@@ -45,6 +47,17 @@ from .const import OCCUPANCY_ENTITY_ID, PROBLEM_ENTITY_ID
             STATE_OFF,
             id="no_error",
         ),
+        pytest.param(
+            "demand_control",
+            DEMAND_ENTITY_ID,
+            None,
+            3,
+            STATE_ON,
+            id="demand_response",
+        ),
+        pytest.param(
+            "demand_control", DEMAND_ENTITY_ID, None, 0, STATE_OFF, id="no_demand"
+        ),
     ],
 )
 async def test_binary_sensor(
@@ -52,7 +65,7 @@ async def test_binary_sensor(
     unit: SimulatedUnit,
     prop: str,
     entity_id: str,
-    device_class: BinarySensorDeviceClass,
+    device_class: BinarySensorDeviceClass | None,
     value: int,
     expected: str,
 ) -> None:
@@ -65,4 +78,4 @@ async def test_binary_sensor(
     state = hass.states.get(entity_id)
     assert state is not None
     assert state.state == expected
-    assert state.attributes[ATTR_DEVICE_CLASS] == device_class
+    assert state.attributes.get(ATTR_DEVICE_CLASS) == device_class

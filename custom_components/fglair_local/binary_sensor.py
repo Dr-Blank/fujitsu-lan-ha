@@ -13,7 +13,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import FglairLocalConfigEntry, FglairLocalDevice
 from .entity import FglairLocalEntity, async_add_when_reported
-from .properties import ERROR_CODE, HUMAN_DETECTED, is_numeric, raw_int
+from .properties import DEMAND_CONTROL, ERROR_CODE, HUMAN_DETECTED, is_numeric, raw_int
 
 # Each is on while its property is non-zero.
 BINARY_SENSORS = (
@@ -25,6 +25,8 @@ BINARY_SENSORS = (
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
+    # A utility demand-response event limits the unit (app: "Demand Control DR Mode").
+    BinarySensorEntityDescription(key=DEMAND_CONTROL, translation_key=DEMAND_CONTROL),
 )
 
 

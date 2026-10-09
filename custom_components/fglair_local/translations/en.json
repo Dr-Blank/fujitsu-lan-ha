@@ -128,6 +128,11 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "demand_control": {
+        "name": "Demand response"
+      }
+    },
     "button": {
       "refresh": {
         "name": "Re-read all properties"

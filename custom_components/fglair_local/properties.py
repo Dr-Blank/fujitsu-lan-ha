@@ -32,6 +32,8 @@ HUMAN_DETECTED = "human_det"
 OP_STATUS = "op_status"
 MONITOR1 = "monitor1"
 POWERFUL_MODE = "powerful_mode"
+# Set by the unit during a utility demand-response event; the app never writes it.
+DEMAND_CONTROL = "demand_control"
 
 # Up to 15 positions per axis, numbered from the top or the left.
 # Vertical: AP-WF3E has 4, ASYG-KMCC 6. Horizontal: AP-WF3E has 5.
@@ -50,7 +52,6 @@ TOGGLE_PROPERTIES = (
     "human_det_auto_off",
     "human_det_auto_on_off",
     "wifi_led_enable",
-    "demand_control",
     "indoor_fan_control",
     "external_thermostat_off",
 )
@@ -62,6 +63,7 @@ INFO_PROPERTIES = (
     OPERATION_SOURCE_ID,
     HUMAN_DETECTED,
     OP_STATUS,
+    DEMAND_CONTROL,
     "system_type",
     "comm_version",
     "oem_host_version",

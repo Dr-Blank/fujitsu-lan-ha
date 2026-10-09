@@ -92,6 +92,7 @@ To change the callback address later, for example after moving Home Assistant to
   - **Horizontal louvre** (horizontal swing mode), on units that have one: swing, stop, or hold at a fixed step: position 1 (the leftmost) to the number of steps the unit reports, up to 15.
 - **Switches:** economy, powerful, outdoor unit low noise, energy saving fan and human sensor, for the features your unit reports. Other on/off settings the unit reports, such as the Wi-Fi LED, are configuration entities.
 - **Occupancy:** the unit's human sensor.
+- **Demand response:** on while a utility demand-response event limits the unit. Read-only.
 - **Outdoor temperature:** created once the unit reports a reading.
 - **Problem** (diagnostic): on while the unit reports an error.
 - **Error code** (diagnostic): the error as the FGLair app shows it, for example `62.6`. Unknown while there is no error.

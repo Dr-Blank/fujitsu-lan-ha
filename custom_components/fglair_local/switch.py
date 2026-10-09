@@ -4,13 +4,15 @@ from functools import partial
 from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.const import EntityCategory
+from homeassistant.const import EntityCategory, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
+from .const import DOMAIN
 from .coordinator import FglairLocalConfigEntry, FglairLocalDevice
 from .entity import FglairLocalEntity, async_add_when_reported
-from .properties import TOGGLE_PROPERTIES, is_numeric, raw_int
+from .properties import DEMAND_CONTROL, TOGGLE_PROPERTIES, is_numeric, raw_int
 
 # Settings the FGLair app shows, named as it does. The rest keep their raw name.
 APP_SETTINGS = {
@@ -40,6 +42,12 @@ async def async_setup_entry(
 ) -> None:
     """Set up switches."""
     device = entry.runtime_data
+    registry = er.async_get(hass)
+    # Read-only state, once wrongly offered as a switch.
+    if entity_id := registry.async_get_entity_id(
+        Platform.SWITCH, DOMAIN, f"{device.dsn}_{DEMAND_CONTROL}"
+    ):
+        registry.async_remove(entity_id)
     async_add_when_reported(
         entry,
         async_add_entities,

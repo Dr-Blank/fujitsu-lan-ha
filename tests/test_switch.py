@@ -20,7 +20,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from . import SimulatedUnit, written
-from .const import ECONOMY_ENTITY_ID
+from .const import DSN, ECONOMY_ENTITY_ID
+from custom_components.fglair_local.const import DOMAIN
 from custom_components.fglair_local.properties import TOGGLE_PROPERTIES
 
 
@@ -127,3 +128,22 @@ async def test_turn_writes_boolean(
     state = hass.states.get(entity_id)
     assert state is not None
     assert state.state == before
+
+
+@pytest.fixture
+def stale_demand_control(entity_registry: er.EntityRegistry) -> None:
+    """Register the demand control switch an earlier version created."""
+    entity_registry.async_get_or_create(SWITCH_DOMAIN, DOMAIN, f"{DSN}_demand_control")
+
+
+@pytest.mark.usefixtures("stale_demand_control", "init_integration")
+async def test_demand_control_switch_removed(
+    entity_registry: er.EntityRegistry,
+) -> None:
+    """Demand control is read-only, so an earlier switch for it goes on setup."""
+    assert (
+        entity_registry.async_get_entity_id(
+            SWITCH_DOMAIN, DOMAIN, f"{DSN}_demand_control"
+        )
+        is None
+    )
