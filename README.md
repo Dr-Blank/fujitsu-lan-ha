@@ -90,7 +90,7 @@ To change the callback address later, for example after moving Home Assistant to
 - **Climate:** on/off, HVAC mode, target temperature and fan speed (including quiet). The target range follows the mode, as in the FGLair app: 16–30 °C in heat, 18–30 °C otherwise, or the range the unit reports.
   - **Vertical louvre** (swing mode): swing, stop, or hold at a fixed step: position 1 (the highest) to the number of steps the unit reports, up to 15. Units that report no count can only swing or stop.
   - **Horizontal louvre** (horizontal swing mode), on units that have one: swing, stop, or hold at a fixed step: position 1 (the leftmost) to the number of steps the unit reports, up to 15.
-- **Switches:** economy, powerful, outdoor unit low noise, energy saving fan and human sensor, for the features your unit reports. Other on/off settings the unit reports, such as the Wi-Fi LED, are configuration entities.
+- **Switches:** economy, powerful, outdoor unit low noise, energy saving fan and human sensor, for the features your unit reports and supports (the FGLair app's rules: its capability flags, and human sensor only on units with one). Other on/off settings the unit reports, such as the Wi-Fi LED, are configuration entities.
 - **Occupancy:** the unit's human sensor.
 - **Demand response:** on while a utility demand-response event limits the unit. Read-only.
 - **Outdoor temperature:** created once the unit reports a reading.

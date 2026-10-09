@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 
 from . import SimulatedUnit
-from .const import ECONOMY_ENTITY_ID, ENTRY_DATA
+from .const import ECONOMY_ENTITY_ID, ENTRY_DATA, SETTINGS_SUPPORTED
 from custom_components.fglair_local.const import CONF_DSN, DOMAIN
 from custom_components.fglair_local.views import AylaLanView
 
@@ -83,6 +83,7 @@ async def test_unload_detaches_before_platforms(
 ) -> None:
     """A value arriving while the platforms unload cannot add an entity to one."""
     await unit.key_exchange()
+    await unit.push_all(SETTINGS_SUPPORTED)
     unload_platforms = hass.config_entries.async_unload_platforms
     statuses: list[int] = []
 

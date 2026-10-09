@@ -65,6 +65,13 @@ UNIT_DATAPOINTS = {
     "anti_freeze": 65535,
 }
 
+# What the FGLair app needs before it offers the settings, as in UNIT_DATAPOINTS:
+# every capability bit but coil dry's, and a human sensor.
+SETTINGS_SUPPORTED = {
+    "device_capabilities": UNIT_DATAPOINTS["device_capabilities"],
+    "human_det": UNIT_DATAPOINTS["human_det"],
+}
+
 # `ac_info1` from an AP-WF3E; fields 27-32 are the cool, heat and auto setpoint
 # ranges in tenths of a degree.
 AC_INFO1 = (

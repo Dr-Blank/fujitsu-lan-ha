@@ -1,18 +1,28 @@
 """On/off settings for Fujitsu FGLair Local, named after their raw property."""
 
-from functools import partial
+from collections.abc import Mapping
 from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.const import EntityCategory, Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import FglairLocalConfigEntry, FglairLocalDevice
-from .entity import FglairLocalEntity, async_add_when_reported
-from .properties import DEMAND_CONTROL, TOGGLE_PROPERTIES, is_numeric, raw_int
+from .entity import FglairLocalEntity
+from .properties import (
+    DEMAND_CONTROL,
+    DEVICE_CAPABILITIES,
+    HUMAN_DET_AUTO_SAVE,
+    HUMAN_DETECTED,
+    TOGGLE_CAPABILITY,
+    TOGGLE_PROPERTIES,
+    Capability,
+    is_numeric,
+    raw_int,
+)
 
 # Settings the FGLair app shows, named as it does. The rest keep their raw name.
 APP_SETTINGS = {
@@ -35,28 +45,51 @@ PRIMARY = frozenset(
 )
 
 
+def _supported(values: Mapping[str, Any], prop: str) -> bool | None:
+    """Whether the FGLair app offers the setting on this unit; None until known."""
+    if prop == HUMAN_DET_AUTO_SAVE:
+        if (sensor := raw_int(values.get(HUMAN_DETECTED))) is None:
+            return None
+        return sensor == 1
+    if (bit := TOGGLE_CAPABILITY.get(prop)) is None:
+        return True
+    if (caps := raw_int(values.get(DEVICE_CAPABILITIES))) is None:
+        return None
+    return bit in Capability(caps)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: FglairLocalConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up switches."""
+    """Set up a switch for each setting the unit reports and supports."""
     device = entry.runtime_data
     registry = er.async_get(hass)
+
     # Read-only state, once wrongly offered as a switch.
     if entity_id := registry.async_get_entity_id(
         Platform.SWITCH, DOMAIN, f"{device.dsn}_{DEMAND_CONTROL}"
     ):
         registry.async_remove(entity_id)
-    async_add_when_reported(
-        entry,
-        async_add_entities,
-        [
-            (prop, partial(FglairLocalSwitch, device, prop))
-            for prop in TOGGLE_PROPERTIES
-        ],
-        ready=is_numeric,
-    )
+    waiting = list(TOGGLE_PROPERTIES)
+
+    @callback
+    def add_supported() -> None:
+        new = []
+        for prop in list(waiting):
+            supported = _supported(device.values, prop)
+            # An earlier version's entity stays in the registry for the user to remove.
+            if supported is False:
+                waiting.remove(prop)
+            elif supported and is_numeric(device.values.get(prop)):
+                waiting.remove(prop)
+                new.append(FglairLocalSwitch(device, prop))
+        if new:
+            async_add_entities(new)
+
+    add_supported()
+    entry.async_on_unload(device.async_add_listener(add_supported))
 
 
 class FglairLocalSwitch(FglairLocalEntity, SwitchEntity):

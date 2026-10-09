@@ -19,6 +19,7 @@ from .const import (
     ENTRY_DATA,
     OCCUPANCY_ENTITY_ID,
     REFRESH_ENTITY_ID,
+    SETTINGS_SUPPORTED,
     UNIT_DATAPOINTS,
 )
 from custom_components.fglair_local import PLATFORMS
@@ -159,7 +160,7 @@ async def test_value_turning_sentinel_is_unknown(
 ) -> None:
     """An entity stays once created, and reads unknown if the value turns 65535."""
     await unit.key_exchange()
-    await unit.push(name, 1)
+    await unit.push_all({**SETTINGS_SUPPORTED, name: 1})
 
     await unit.push(name, 65535)
 
@@ -176,7 +177,7 @@ async def test_disabled_entity_stops_listening(
 ) -> None:
     """An entity the user disables is no longer updated by pushed values."""
     await unit.key_exchange()
-    await unit.push("economy_mode", 0)
+    await unit.push_all({**SETTINGS_SUPPORTED, "economy_mode": 0})
 
     entity_registry.async_update_entity(
         ECONOMY_ENTITY_ID, disabled_by=er.RegistryEntryDisabler.USER

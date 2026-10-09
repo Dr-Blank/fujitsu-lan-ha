@@ -26,6 +26,7 @@ from .const import (
     ECONOMY_ENTITY_ID,
     HOST,
     REFRESH_ENTITY_ID,
+    SETTINGS_SUPPORTED,
     UNIT_DATAPOINTS,
 )
 from custom_components.fglair_local.const import DOMAIN
@@ -74,7 +75,7 @@ async def test_write_is_optimistic_over_reported_value(
 ) -> None:
     """A write to a value the unit reported shows at once."""
     await unit.key_exchange()
-    await unit.push("economy_mode", 0)
+    await unit.push_all({**SETTINGS_SUPPORTED, "economy_mode": 0})
 
     device.set_property("economy_mode", 1)
 
@@ -87,8 +88,8 @@ async def test_write_is_optimistic_over_reported_value(
 @pytest.mark.parametrize(
     "datapoints",
     [
-        pytest.param({}, id="never_reported"),
-        pytest.param({"economy_mode": 65535}, id="sentinel"),
+        pytest.param(SETTINGS_SUPPORTED, id="never_reported"),
+        pytest.param({**SETTINGS_SUPPORTED, "economy_mode": 65535}, id="sentinel"),
     ],
 )
 @pytest.mark.usefixtures("entity_registry_enabled_by_default")
@@ -413,7 +414,7 @@ async def test_failed_write_is_undone_and_read_back(
 ) -> None:
     """A write the unit refuses or never collects is logged and undone, then read back."""
     await unit.key_exchange()
-    await unit.push("economy_mode", 0)
+    await unit.push_all({**SETTINGS_SUPPORTED, "economy_mode": 0})
     await unit.drain()
 
     device.set_property("economy_mode", 1)
@@ -517,7 +518,7 @@ async def test_refused_write_restores_acked_value(
 ) -> None:
     """A refused write falls back to the last value the unit acked, not an older one."""
     await unit.key_exchange()
-    await unit.push("economy_mode", 0)
+    await unit.push_all({**SETTINGS_SUPPORTED, "economy_mode": 0})
     await unit.drain()
 
     device.set_property("economy_mode", 1)
@@ -548,7 +549,7 @@ async def test_pushed_value_wins_over_write_in_flight(
     The read-back then settles which of the two the unit kept.
     """
     await unit.key_exchange()
-    await unit.push("economy_mode", 0)
+    await unit.push_all({**SETTINGS_SUPPORTED, "economy_mode": 0})
     await unit.drain()
 
     device.set_property("economy_mode", 1)

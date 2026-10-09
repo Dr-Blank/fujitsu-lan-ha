@@ -32,6 +32,12 @@ HUMAN_DETECTED = "human_det"
 OP_STATUS = "op_status"
 MONITOR1 = "monitor1"
 POWERFUL_MODE = "powerful_mode"
+ECONOMY_MODE = "economy_mode"
+OUTDOOR_LOW_NOISE = "outdoor_low_noise"
+MIN_HEAT = "min_heat"
+COIL_DRY_MODE = "coil_dry_mode"
+HUMAN_DET_AUTO_SAVE = "human_det_auto_save"
+INDOOR_FAN_CONTROL = "indoor_fan_control"
 # Set by the unit during a utility demand-response event; the app never writes it.
 DEMAND_CONTROL = "demand_control"
 
@@ -43,16 +49,16 @@ POSITIONS = tuple(f"position_{n}" for n in range(1, MAX_POSITIONS + 1))
 # On/off settings. Tested on AP-WF3E: economy_mode, outdoor_low_noise,
 # indoor_fan_control and human_det_auto_save.
 TOGGLE_PROPERTIES = (
-    "economy_mode",
+    ECONOMY_MODE,
     POWERFUL_MODE,
-    "outdoor_low_noise",
-    "min_heat",
-    "coil_dry_mode",
-    "human_det_auto_save",
+    OUTDOOR_LOW_NOISE,
+    MIN_HEAT,
+    COIL_DRY_MODE,
+    HUMAN_DET_AUTO_SAVE,
     "human_det_auto_off",
     "human_det_auto_on_off",
     "wifi_led_enable",
-    "indoor_fan_control",
+    INDOOR_FAN_CONTROL,
     "external_thermostat_off",
 )
 # Write-only actions that idle at 0.
@@ -172,6 +178,16 @@ class Capability(IntFlag):
     OUTDOOR_LOW_NOISE = 1 << 17
     COIL_DRY = 1 << 18
 
+
+# Settings the FGLair app offers only on units with the capability bit.
+TOGGLE_CAPABILITY = {
+    ECONOMY_MODE: Capability.ECO_MODE,
+    MIN_HEAT: Capability.OP_MIN_HEAT,
+    INDOOR_FAN_CONTROL: Capability.ENERGY_SWING_FAN,
+    POWERFUL_MODE: Capability.POWERFUL_MODE,
+    OUTDOOR_LOW_NOISE: Capability.OUTDOOR_LOW_NOISE,
+    COIL_DRY_MODE: Capability.COIL_DRY,
+}
 
 # Setpoint range in °C per mode, as the FGLair app limits it.
 SETPOINT_LIMITS = {
