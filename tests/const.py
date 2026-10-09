@@ -64,3 +64,16 @@ UNIT_DATAPOINTS = {
     # Not applicable to this model, so no entity is created for it.
     "anti_freeze": 65535,
 }
+
+# `ac_info1` from an AP-WF3E; fields 27-32 are the cool, heat and auto setpoint
+# ranges in tenths of a degree.
+AC_INFO1 = (
+    "65535,65535,65535,65535,0,65535,65535,65535,65535,65535,65535,65535,65535,"
+    "65535,0,65535,65535,65535,65535,65535,65535,0,65535,65535,65535,65535,65535,"
+    "180,300,160,300,180,300,65535,65535,65535,65535,65535,65535,65535,65535,"
+    "0,0,0,0,0,65535,0,0,9437184,0,0,"
+)
+# The same with cool and auto limited to 20 °C and up, as on UAE units.
+AC_INFO1_FROM_20 = AC_INFO1.replace(
+    "180,300,160,300,180,300", "200,300,160,300,200,300"
+)

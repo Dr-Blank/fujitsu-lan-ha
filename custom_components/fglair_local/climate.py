@@ -26,6 +26,7 @@ from homeassistant.helpers.restore_state import RestoredExtraData, RestoreEntity
 from .coordinator import FglairLocalConfigEntry, FglairLocalDevice
 from .entity import FglairLocalEntity
 from .properties import (
+    AC_INFO1,
     ADJUST_TEMPERATURE,
     DEVICE_CAPABILITIES,
     DISPLAY_TEMPERATURE,
@@ -44,6 +45,7 @@ from .properties import (
     decode_horizontal_positions,
     decode_sensed_temperature,
     decode_setpoint,
+    decode_setpoint_limits,
     decode_vertical_positions,
     encode_setpoint,
     raw_int,
@@ -143,8 +145,6 @@ class FglairLocalClimate(FglairLocalEntity, RestoreEntity, ClimateEntity):
     _attr_translation_key = "air_conditioner"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_target_temperature_step = 0.5
-    _attr_min_temp = 16
-    _attr_max_temp = 30
     # The unit reports a setpoint of 0 while off; keep showing the last real one.
     _attr_target_temperature = DEFAULT_SETPOINT
 
@@ -184,6 +184,25 @@ class FglairLocalClimate(FglairLocalEntity, RestoreEntity, ClimateEntity):
     def _capabilities(self) -> Capability | None:
         raw = self._value(DEVICE_CAPABILITIES)
         return None if raw is None else Capability(raw)
+
+    def _setpoint_range(self) -> tuple[float, float]:
+        limits = decode_setpoint_limits(self.device.values.get(AC_INFO1))
+        if (mode := self._value(OPERATION_MODE)) is not None and mode in limits:
+            return limits[OpMode(mode)]
+        # Off, fan or unknown: whatever some mode accepts.
+        return min(low for low, _ in limits.values()), max(
+            high for _, high in limits.values()
+        )
+
+    @property
+    def min_temp(self) -> float:
+        """Lowest setpoint the current mode accepts."""
+        return self._setpoint_range()[0]
+
+    @property
+    def max_temp(self) -> float:
+        """Highest setpoint the current mode accepts."""
+        return self._setpoint_range()[1]
 
     @property
     def hvac_modes(self) -> list[HVACMode]:

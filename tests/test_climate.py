@@ -12,6 +12,8 @@ from homeassistant.components.climate import (
     ATTR_FAN_MODES,
     ATTR_HVAC_MODE,
     ATTR_HVAC_MODES,
+    ATTR_MAX_TEMP,
+    ATTR_MIN_TEMP,
     ATTR_SWING_HORIZONTAL_MODE,
     ATTR_SWING_HORIZONTAL_MODES,
     ATTR_SWING_MODE,
@@ -43,7 +45,7 @@ from homeassistant.util.unit_system import (
 )
 
 from . import SimulatedUnit, read_resource, written
-from .const import CLIMATE_ENTITY_ID, UNIT_DATAPOINTS
+from .const import AC_INFO1, AC_INFO1_FROM_20, CLIMATE_ENTITY_ID, UNIT_DATAPOINTS
 from custom_components.fglair_local.climate import DEFAULT_SETPOINT
 from custom_components.fglair_local.const import DOMAIN
 from custom_components.fglair_local.properties import (
@@ -233,6 +235,116 @@ async def test_set_temperature_with_mode(
     assert state is not None
     assert state.state == HVACMode.HEAT
     assert state.attributes[ATTR_TEMPERATURE] == 22.5
+
+
+async def test_set_temperature_checked_against_current_mode(
+    hass: HomeAssistant, unit: SimulatedUnit
+) -> None:
+    """Home Assistant checks the target against the current mode's range, not the new one's."""
+    await unit.key_exchange()
+    await unit.push_all(UNIT_DATAPOINTS)
+
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            CLIMATE_DOMAIN,
+            SERVICE_SET_TEMPERATURE,
+            {
+                ATTR_ENTITY_ID: CLIMATE_ENTITY_ID,
+                ATTR_TEMPERATURE: 16,
+                ATTR_HVAC_MODE: HVACMode.HEAT,
+            },
+            blocking=True,
+        )
+
+    assert read_resource(await unit.fetch_command()) == (
+        f"property.json?name={PRIMED[0]}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("datapoints", "min_temp", "max_temp"),
+    [
+        pytest.param({"operation_mode": 3}, 18.0, 30.0, id="cool"),
+        pytest.param({"operation_mode": 4}, 18.0, 30.0, id="dry"),
+        pytest.param({"operation_mode": 2}, 18.0, 30.0, id="auto"),
+        pytest.param({"operation_mode": 6}, 16.0, 30.0, id="heat"),
+        pytest.param({"operation_mode": 5}, 16.0, 30.0, id="fan"),
+        pytest.param({"operation_mode": 0}, 16.0, 30.0, id="off"),
+        pytest.param({"operation_mode": 65535}, 16.0, 30.0, id="mode_sentinel"),
+        pytest.param({}, 16.0, 30.0, id="mode_unknown"),
+        pytest.param(
+            {"operation_mode": 3, "ac_info1": AC_INFO1}, 18.0, 30.0, id="cool_reported"
+        ),
+        pytest.param(
+            {"operation_mode": 6, "ac_info1": AC_INFO1}, 16.0, 30.0, id="heat_reported"
+        ),
+        pytest.param(
+            {"operation_mode": 3, "ac_info1": AC_INFO1_FROM_20},
+            20.0,
+            30.0,
+            id="cool_from_20",
+        ),
+        pytest.param(
+            {"operation_mode": 4, "ac_info1": AC_INFO1_FROM_20},
+            20.0,
+            30.0,
+            id="dry_follows_cool",
+        ),
+        pytest.param(
+            {"operation_mode": 2, "ac_info1": AC_INFO1_FROM_20},
+            20.0,
+            30.0,
+            id="auto_from_20",
+        ),
+        pytest.param(
+            {"operation_mode": 6, "ac_info1": AC_INFO1_FROM_20},
+            16.0,
+            30.0,
+            id="heat_from_16",
+        ),
+        pytest.param(
+            {"operation_mode": 0, "ac_info1": AC_INFO1_FROM_20},
+            16.0,
+            30.0,
+            id="off_spans_all",
+        ),
+    ],
+)
+async def test_setpoint_range_follows_mode(
+    hass: HomeAssistant,
+    unit: SimulatedUnit,
+    datapoints: dict[str, int | str],
+    min_temp: float,
+    max_temp: float,
+) -> None:
+    """Each mode has the unit's own setpoint range, else the FGLair app's."""
+    await unit.key_exchange()
+    await unit.push_all(datapoints)
+
+    state = hass.states.get(CLIMATE_ENTITY_ID)
+    assert state is not None
+    assert state.attributes[ATTR_MIN_TEMP] == min_temp
+    assert state.attributes[ATTR_MAX_TEMP] == max_temp
+
+
+async def test_setpoint_below_mode_range_rejected(
+    hass: HomeAssistant, unit: SimulatedUnit
+) -> None:
+    """A setpoint the current mode does not accept is refused without writing it."""
+    await unit.key_exchange()
+    await unit.push_all({**UNIT_DATAPOINTS, "ac_info1": AC_INFO1_FROM_20})
+
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            CLIMATE_DOMAIN,
+            SERVICE_SET_TEMPERATURE,
+            {ATTR_ENTITY_ID: CLIMATE_ENTITY_ID, ATTR_TEMPERATURE: 19},
+            blocking=True,
+        )
+
+    assert read_resource(await unit.fetch_command()) == (
+        f"property.json?name={PRIMED[0]}"
+    )
 
 
 @pytest.mark.parametrize(

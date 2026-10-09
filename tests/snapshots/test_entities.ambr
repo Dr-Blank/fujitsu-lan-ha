@@ -223,8 +223,8 @@
         <HVACMode.HEAT: 'heat'>,
         <HVACMode.HEAT_COOL: 'heat_cool'>,
       ]),
-      <ClimateEntityCapabilityAttribute.MAX_TEMP: 'max_temp'>: 30,
-      <ClimateEntityCapabilityAttribute.MIN_TEMP: 'min_temp'>: 16,
+      <ClimateEntityCapabilityAttribute.MAX_TEMP: 'max_temp'>: 30.0,
+      <ClimateEntityCapabilityAttribute.MIN_TEMP: 'min_temp'>: 18.0,
       <ClimateEntityCapabilityAttribute.SWING_HORIZONTAL_MODES: 'swing_horizontal_modes'>: list([
         'on',
         'off',
@@ -295,8 +295,8 @@
         <HVACMode.HEAT: 'heat'>,
         <HVACMode.HEAT_COOL: 'heat_cool'>,
       ]),
-      <ClimateEntityCapabilityAttribute.MAX_TEMP: 'max_temp'>: 30,
-      <ClimateEntityCapabilityAttribute.MIN_TEMP: 'min_temp'>: 16,
+      <ClimateEntityCapabilityAttribute.MAX_TEMP: 'max_temp'>: 30.0,
+      <ClimateEntityCapabilityAttribute.MIN_TEMP: 'min_temp'>: 18.0,
       <EntityStateAttribute.SUPPORTED_FEATURES: 'supported_features'>: <ClimateEntityFeature: 937>,
       <ClimateEntityStateAttribute.SWING_HORIZONTAL_MODE: 'swing_horizontal_mode'>: 'position_5',
       <ClimateEntityCapabilityAttribute.SWING_HORIZONTAL_MODES: 'swing_horizontal_modes'>: list([

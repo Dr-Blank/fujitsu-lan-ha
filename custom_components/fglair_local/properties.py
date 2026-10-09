@@ -24,6 +24,7 @@ HORIZONTAL_NUM_DIR = "af_horizontal_num_dir"
 DEVICE_CAPABILITIES = "device_capabilities"
 MODEL_NAME = "model_name"
 MCU_FW_VERSION = "mcu_fw_version"
+AC_INFO1 = "ac_info1"
 
 ERROR_CODE = "error_code"
 OPERATION_SOURCE_ID = "operation_source_id"
@@ -80,7 +81,7 @@ INFO_PROPERTIES = (
     "ota_status2",
     "ota_completed",
     MONITOR1,
-    "ac_info1",
+    AC_INFO1,
 )
 
 # Written as booleans. The unit ignores swing written with any other base_type.
@@ -170,6 +171,19 @@ class Capability(IntFlag):
     COIL_DRY = 1 << 18
 
 
+# Setpoint range in °C per mode, as the FGLair app limits it.
+SETPOINT_LIMITS = {
+    OpMode.AUTO: (18.0, 30.0),
+    OpMode.COOL: (18.0, 30.0),
+    OpMode.DRY: (18.0, 30.0),
+    OpMode.HEAT: (16.0, 30.0),
+}
+# `ac_info1` field of each mode's minimum, followed by its maximum. Seen as
+# 180,300,160,300,180,300 on AP-WF3E; only heat differs, so cool and auto may be swapped.
+AC_INFO1_SETPOINT_FIELDS = {OpMode.COOL: 27, OpMode.HEAT: 29, OpMode.AUTO: 31}
+# Highest plausible `ac_info1` limit, °C x 10; anything above is a bad field.
+MAX_SETPOINT = 400
+
 # Display glyph of each nibble of an error code from 256 up.
 SEVEN_SEGMENT = "0123456789ACFJPU"
 
@@ -213,6 +227,20 @@ def decode_setpoint(value: Any) -> float | None:
 def encode_setpoint(celsius: float) -> int:
     """Setpoint to the wire: °C x 10."""
     return round(celsius * 10)
+
+
+def decode_setpoint_limits(ac_info1: Any) -> dict[OpMode, tuple[float, float]]:
+    """Setpoint range in °C per mode: the unit's own from `ac_info1`, else the app's."""
+    limits = dict(SETPOINT_LIMITS)
+    fields = [] if ac_info1 is None else str(ac_info1).split(",")
+    for mode, index in AC_INFO1_SETPOINT_FIELDS.items():
+        if index + 1 >= len(fields):
+            continue
+        low, high = raw_int(fields[index]), raw_int(fields[index + 1])
+        if low is not None and high is not None and 0 < low < high <= MAX_SETPOINT:
+            limits[mode] = (low / 10, high / 10)
+    limits[OpMode.DRY] = limits[OpMode.COOL]
+    return limits
 
 
 def decode_error_code(value: Any) -> str | None:

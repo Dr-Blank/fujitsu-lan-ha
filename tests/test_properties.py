@@ -4,7 +4,9 @@ from typing import Any
 
 import pytest
 
+from .const import AC_INFO1, AC_INFO1_FROM_20
 from custom_components.fglair_local.properties import (
+    OpMode,
     Positions,
     decode_adapter_model,
     decode_error_code,
@@ -12,13 +14,25 @@ from custom_components.fglair_local.properties import (
     decode_horizontal_positions,
     decode_sensed_temperature,
     decode_setpoint,
+    decode_setpoint_limits,
     decode_vertical_positions,
     encode_setpoint,
     raw_int,
 )
 
+APP_LIMITS = {
+    OpMode.AUTO: (18.0, 30.0),
+    OpMode.COOL: (18.0, 30.0),
+    OpMode.DRY: (18.0, 30.0),
+    OpMode.HEAT: (16.0, 30.0),
+}
 FIVE = tuple(f"position_{n}" for n in range(1, 6))
 THREE = FIVE[:3]
+
+
+def with_limits(limits: str) -> str:
+    """Return the AP-WF3E `ac_info1` with fields 27-32 replaced."""
+    return AC_INFO1.replace("180,300,160,300,180,300", limits)
 
 
 @pytest.mark.parametrize(
@@ -116,6 +130,70 @@ def test_decode_error_code(raw: Any, code: str | None) -> None:
     Below 256, two hex digits; from 256, a 7-segment glyph per hex digit.
     """
     assert decode_error_code(raw) == code
+
+
+@pytest.mark.parametrize(
+    ("ac_info1", "limits"),
+    [
+        pytest.param(None, APP_LIMITS, id="missing"),
+        pytest.param(AC_INFO1, APP_LIMITS, id="ap_wf3e"),
+        pytest.param(
+            AC_INFO1_FROM_20,
+            {
+                OpMode.AUTO: (20.0, 30.0),
+                OpMode.COOL: (20.0, 30.0),
+                OpMode.DRY: (20.0, 30.0),
+                OpMode.HEAT: (16.0, 30.0),
+            },
+            id="from_20",
+        ),
+        pytest.param(
+            with_limits("170,310,150,320,190,290"),
+            {
+                OpMode.AUTO: (19.0, 29.0),
+                OpMode.COOL: (17.0, 31.0),
+                OpMode.DRY: (17.0, 31.0),
+                OpMode.HEAT: (15.0, 32.0),
+            },
+            id="each_field",
+        ),
+        pytest.param(
+            with_limits("65535,300,160,65535,200,300"),
+            {**APP_LIMITS, OpMode.AUTO: (20.0, 30.0)},
+            id="sentinel",
+        ),
+        pytest.param(
+            with_limits("0,300,300,300,200,300"),
+            {**APP_LIMITS, OpMode.AUTO: (20.0, 30.0)},
+            id="zero_or_empty_range",
+        ),
+        pytest.param(
+            with_limits("310,300,x,300,200,300"),
+            {**APP_LIMITS, OpMode.AUTO: (20.0, 30.0)},
+            id="inverted_or_garbage",
+        ),
+        pytest.param(
+            with_limits("180,9999,160,400,200,300"),
+            {**APP_LIMITS, OpMode.HEAT: (16.0, 40.0), OpMode.AUTO: (20.0, 30.0)},
+            id="implausible_max",
+        ),
+        pytest.param(
+            # Cut inside the heat range.
+            ",".join(with_limits("200,300,170,300,190,300").split(",")[:30]),
+            {**APP_LIMITS, OpMode.COOL: (20.0, 30.0), OpMode.DRY: (20.0, 30.0)},
+            id="truncated",
+        ),
+        pytest.param("garbage", APP_LIMITS, id="garbage"),
+    ],
+)
+def test_decode_setpoint_limits(
+    ac_info1: str | None, limits: dict[OpMode, tuple[float, float]]
+) -> None:
+    """The unit's own range per mode, where valid, overrides the app's.
+
+    Dry always follows cool.
+    """
+    assert decode_setpoint_limits(ac_info1) == limits
 
 
 @pytest.mark.parametrize(
