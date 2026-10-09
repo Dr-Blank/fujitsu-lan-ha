@@ -6,8 +6,12 @@ Answers to the questions that come up most. If yours is not here, [open an issue
 
 The Wi-Fi adapter can stop answering on the network while the air conditioner itself keeps running. This has been seen once on an AP-WF3E, where it lasted over half an hour until the unit was power-cycled, and a UTY-TFSXW1 user reported a unit that would not connect while being added until it was power-cycled. The cause is not known yet. If it happens to you, please [open an issue](https://github.com/Dr-Blank/fujitsu-lan-ha/issues) with the time and your adapter model.
 
-1. Switch the air conditioner off at the breaker or mains, wait 30 seconds and switch it back on. Turning it off with the remote is not enough: the adapter stays powered.
-2. Wait a minute or two for the adapter to rejoin Wi-Fi. Home Assistant reconnects by itself.
+Fujitsu's procedure, from the FGLair app:
+
+1. Turn the air conditioner off with the remote.
+2. Switch it off at the breaker or mains and wait at least 5 minutes. The remote alone is not enough: the adapter stays powered.
+3. Switch it back on and wait up to 15 minutes for the adapter to rejoin Wi-Fi. Home Assistant reconnects by itself.
+4. If it does not come back, repeat these steps.
 
 If the unit still does not come back, check that its IP address has not changed (see [Give the unit a fixed IP address](#give-the-unit-a-fixed-ip-address)).
 
