@@ -17,7 +17,6 @@ from .const import (
     DSN,
     ECONOMY_ENTITY_ID,
     ENTRY_DATA,
-    OCCUPANCY_ENTITY_ID,
     REFRESH_ENTITY_ID,
     SETTINGS_SUPPORTED,
     UNIT_DATAPOINTS,
@@ -62,7 +61,11 @@ async def test_entities(
 # Entities that need a numeric value, unlike the raw sensor.
 NUMERIC_ENTITIES = [
     pytest.param("economy_mode", ECONOMY_ENTITY_ID, id="switch"),
-    pytest.param("human_det", OCCUPANCY_ENTITY_ID, id="binary_sensor"),
+    pytest.param(
+        "demand_control",
+        "binary_sensor.air_conditioner_demand_response",
+        id="binary_sensor",
+    ),
     pytest.param(
         "filter_sign_reset", "button.air_conditioner_filter_sign_reset", id="button"
     ),

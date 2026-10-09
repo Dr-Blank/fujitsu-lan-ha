@@ -35,7 +35,6 @@ CLIMATE_ENTITY_ID = "climate.air_conditioner"
 OUTDOOR_ENTITY_ID = "sensor.air_conditioner_outdoor_temperature"
 ECONOMY_ENTITY_ID = "switch.air_conditioner_economy"
 REFRESH_ENTITY_ID = "button.air_conditioner_re_read_all_properties"
-OCCUPANCY_ENTITY_ID = "binary_sensor.air_conditioner_occupancy"
 PROBLEM_ENTITY_ID = "binary_sensor.air_conditioner_problem"
 ERROR_CODE_ENTITY_ID = "sensor.air_conditioner_error_code"
 

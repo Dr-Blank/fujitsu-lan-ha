@@ -7,19 +7,18 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
-from homeassistant.const import EntityCategory
+from homeassistant.const import EntityCategory, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
+from .const import DOMAIN
 from .coordinator import FglairLocalConfigEntry, FglairLocalDevice
 from .entity import FglairLocalEntity, async_add_when_reported
 from .properties import DEMAND_CONTROL, ERROR_CODE, HUMAN_DETECTED, is_numeric, raw_int
 
 # Each is on while its property is non-zero.
 BINARY_SENSORS = (
-    BinarySensorEntityDescription(
-        key=HUMAN_DETECTED, device_class=BinarySensorDeviceClass.OCCUPANCY
-    ),
     BinarySensorEntityDescription(
         key=ERROR_CODE,
         device_class=BinarySensorDeviceClass.PROBLEM,
@@ -37,6 +36,12 @@ async def async_setup_entry(
 ) -> None:
     """Set up binary sensors."""
     device = entry.runtime_data
+    # Whether the unit has a human sensor
+    registry = er.async_get(hass)
+    if entity_id := registry.async_get_entity_id(
+        Platform.BINARY_SENSOR, DOMAIN, f"{device.dsn}_{HUMAN_DETECTED}"
+    ):
+        registry.async_remove(entity_id)
     async_add_when_reported(
         entry,
         async_add_entities,

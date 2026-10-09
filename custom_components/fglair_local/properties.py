@@ -28,6 +28,7 @@ AC_INFO1 = "ac_info1"
 
 ERROR_CODE = "error_code"
 OPERATION_SOURCE_ID = "operation_source_id"
+# 1 when the unit has a human sensor; stays 1 in an empty room, so not occupancy.
 HUMAN_DETECTED = "human_det"
 OP_STATUS = "op_status"
 MONITOR1 = "monitor1"
