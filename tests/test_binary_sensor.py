@@ -47,6 +47,14 @@ DEMAND_ENTITY_ID = "binary_sensor.air_conditioner_demand_response"
         pytest.param(
             "demand_control", DEMAND_ENTITY_ID, None, 0, STATE_OFF, id="no_demand"
         ),
+        pytest.param(
+            "demand_control",
+            DEMAND_ENTITY_ID,
+            None,
+            4,
+            STATE_OFF,
+            id="demand_out_of_range",
+        ),
     ],
 )
 async def test_binary_sensor(
@@ -58,7 +66,7 @@ async def test_binary_sensor(
     value: int,
     expected: str,
 ) -> None:
-    """Each binary sensor appears once reported and is on while its value is non-zero."""
+    """Each binary sensor appears once its property is reported, on per its value."""
     await unit.key_exchange()
     assert hass.states.get(entity_id) is None
 

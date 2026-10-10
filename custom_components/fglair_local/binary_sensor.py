@@ -1,5 +1,7 @@
 """Binary sensors for Fujitsu FGLair Local."""
 
+from collections.abc import Callable
+from dataclasses import dataclass
 from functools import partial
 
 from homeassistant.components.binary_sensor import (
@@ -17,15 +19,29 @@ from .coordinator import FglairLocalConfigEntry, FglairLocalDevice
 from .entity import FglairLocalEntity, async_add_when_reported
 from .properties import DEMAND_CONTROL, ERROR_CODE, HUMAN_DETECTED, is_numeric, raw_int
 
-# Each is on while its property is non-zero.
+
+@dataclass(frozen=True, kw_only=True)
+class FglairLocalBinarySensorEntityDescription(BinarySensorEntityDescription):
+    """Binary sensor fed by one integer property."""
+
+    prop: str
+    is_on_fn: Callable[[int], bool] = bool
+
+
 BINARY_SENSORS = (
-    BinarySensorEntityDescription(
+    FglairLocalBinarySensorEntityDescription(
         key=ERROR_CODE,
+        prop=ERROR_CODE,
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     # A utility demand-response event limits the unit (app: "Demand Control DR Mode").
-    BinarySensorEntityDescription(key=DEMAND_CONTROL, translation_key=DEMAND_CONTROL),
+    FglairLocalBinarySensorEntityDescription(
+        key=DEMAND_CONTROL,
+        translation_key=DEMAND_CONTROL,
+        prop=DEMAND_CONTROL,
+        is_on_fn=lambda raw: 1 <= raw <= 3,
+    ),
 )
 
 
@@ -46,7 +62,7 @@ async def async_setup_entry(
         entry,
         async_add_entities,
         [
-            (description.key, partial(FglairLocalBinarySensor, device, description))
+            (description.prop, partial(FglairLocalBinarySensor, device, description))
             for description in BINARY_SENSORS
         ],
         ready=is_numeric,
@@ -56,8 +72,12 @@ async def async_setup_entry(
 class FglairLocalBinarySensor(FglairLocalEntity, BinarySensorEntity):
     """Binary sensor fed by one pushed property."""
 
+    entity_description: FglairLocalBinarySensorEntityDescription
+
     def __init__(
-        self, device: FglairLocalDevice, description: BinarySensorEntityDescription
+        self,
+        device: FglairLocalDevice,
+        description: FglairLocalBinarySensorEntityDescription,
     ) -> None:
         """Initialise."""
         super().__init__(device)
@@ -66,6 +86,6 @@ class FglairLocalBinarySensor(FglairLocalEntity, BinarySensorEntity):
 
     @property
     def is_on(self) -> bool | None:
-        """Whether the property is non-zero."""
-        raw = raw_int(self.device.values.get(self.entity_description.key))
-        return None if raw is None else raw != 0
+        """Whether the property's value means on."""
+        raw = raw_int(self.device.values.get(self.entity_description.prop))
+        return None if raw is None else self.entity_description.is_on_fn(raw)
