@@ -59,9 +59,11 @@ The integration uses Fujitsu's own names: the remote's fan button cycles AUTO, H
 
 ## Can it show whether the unit is heating, cooling or defrosting?
 
-Not yet. The unit does not push such a value when it changes, so the integration now reads the two candidates, `op_status` and `monitor1`, every minute. On an AP-WF3E, `op_status` stayed 0 both while the compressor ran and after it stopped, while one field of `monitor1` went from 1 to 0. That is a single sample, so it is not used yet.
+Defrosting, yes: the climate entity's HVAC action is "Defrosting" and the **Defrost** binary sensor is on while the unit defrosts. Both come from the unit's `op_status`, which the integration reads every minute, so they can lag by up to a minute.
 
-To help, take diagnostics twice in the same mode: once while the compressor runs (cold or hot air comes out) and once after it stops (raise the target above the room temperature when cooling, or lower it when heating). The two values are read once a minute, so wait a minute after the air changes before each download. Attach both files to an issue and say what the unit was doing.
+Heating, cooling and idle, no. The FGLair app does not show them either: the unit reports the mode you chose, not whether the compressor is running. Showing "heating" whenever the mode is heat would be wrong whenever the room has reached the target, so the HVAC action stays unset outside defrost.
+
+One field of `monitor1` went from 1 to 0 once on an AP-WF3E when the compressor stopped. If you want to help check it, take diagnostics twice in the same mode: once while the compressor runs (cold or hot air comes out) and once after it stops (raise the target above the room temperature when cooling, or lower it when heating). Wait a minute after the air changes before each download, then attach both files to an issue and say what the unit was doing.
 
 ## Can I use another integration at the same time?
 

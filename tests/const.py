@@ -59,6 +59,7 @@ UNIT_DATAPOINTS = {
     "human_det": 1,
     "filter_sign_reset": 0,
     "error_code": 0,
+    "op_status": 0,
     "operation_source_id": 2,
     # Not applicable to this model, so no entity is created for it.
     "anti_freeze": 65535,

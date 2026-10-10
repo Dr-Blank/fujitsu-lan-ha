@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
+from typing import Any
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -17,7 +18,16 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .const import DOMAIN
 from .coordinator import FglairLocalConfigEntry, FglairLocalDevice
 from .entity import FglairLocalEntity, async_add_when_reported
-from .properties import DEMAND_CONTROL, ERROR_CODE, HUMAN_DETECTED, is_numeric, raw_int
+from .properties import (
+    DEMAND_CONTROL,
+    ERROR_CODE,
+    HUMAN_DETECTED,
+    OP_STATUS,
+    OP_STATUS_LOCKS,
+    OpStatus,
+    is_numeric,
+    raw_int,
+)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -28,6 +38,21 @@ class FglairLocalBinarySensorEntityDescription(BinarySensorEntityDescription):
     is_on_fn: Callable[[int], bool] = bool
 
 
+def _op_status(
+    key: str, flag: OpStatus, **kwargs: Any
+) -> FglairLocalBinarySensorEntityDescription:
+    """Binary sensor on while `op_status` has the flag."""
+    return FglairLocalBinarySensorEntityDescription(
+        key=key,
+        translation_key=key,
+        prop=OP_STATUS,
+        is_on_fn=lambda raw: bool(raw & flag),
+        **kwargs,
+    )
+
+
+# Template B adapters (AP-WB*) report defrost, oil recovery and mode mismatch
+# in one other bit, not read here.
 BINARY_SENSORS = (
     FglairLocalBinarySensorEntityDescription(
         key=ERROR_CODE,
@@ -41,6 +66,31 @@ BINARY_SENSORS = (
         translation_key=DEMAND_CONTROL,
         prop=DEMAND_CONTROL,
         is_on_fn=lambda raw: 1 <= raw <= 3,
+    ),
+    _op_status(
+        "defrost", OpStatus.DEFROST, device_class=BinarySensorDeviceClass.RUNNING
+    ),
+    FglairLocalBinarySensorEntityDescription(
+        key="operation_restricted",
+        translation_key="operation_restricted",
+        prop=OP_STATUS,
+        is_on_fn=lambda raw: bool(raw & OP_STATUS_LOCKS),
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    *(
+        _op_status(
+            key,
+            flag,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            entity_registry_enabled_default=False,
+        )
+        for key, flag in (
+            ("oil_recovery", OpStatus.OIL_RECOVERY),
+            ("mode_mismatch", OpStatus.MODE_MISMATCH),
+            ("maintenance", OpStatus.MAINTENANCE),
+            ("pump_down", OpStatus.PUMP_DOWN),
+            ("test_run", OpStatus.TEST_RUN),
+        )
     ),
 )
 

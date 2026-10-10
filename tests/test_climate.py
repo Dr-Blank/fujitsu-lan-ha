@@ -10,6 +10,7 @@ from homeassistant.components.climate import (
     ATTR_CURRENT_TEMPERATURE,
     ATTR_FAN_MODE,
     ATTR_FAN_MODES,
+    ATTR_HVAC_ACTION,
     ATTR_HVAC_MODE,
     ATTR_HVAC_MODES,
     ATTR_MAX_TEMP,
@@ -25,6 +26,7 @@ from homeassistant.components.climate import (
     SERVICE_SET_SWING_MODE,
     SERVICE_SET_TEMPERATURE,
     ClimateEntityFeature,
+    HVACAction,
     HVACMode,
 )
 from homeassistant.const import (
@@ -99,6 +101,31 @@ async def test_state_from_datapoints(hass: HomeAssistant, unit: SimulatedUnit) -
     assert state.attributes[ATTR_FAN_MODE] == "auto"
     assert state.attributes[ATTR_SWING_MODE] == "on"
     assert state.attributes[ATTR_SWING_HORIZONTAL_MODE] == "position_5"
+
+
+@pytest.mark.parametrize(
+    ("op_status", "expected"),
+    [
+        pytest.param(1 << 24, HVACAction.DEFROSTING, id="defrost"),
+        pytest.param((1 << 24) | (1 << 3), HVACAction.DEFROSTING, id="defrost_locked"),
+        # Not a running state: the unit may or may not be heating or cooling.
+        pytest.param(0, None, id="none"),
+        pytest.param(1 << 28, None, id="oil_recovery"),
+    ],
+)
+async def test_hvac_action(
+    hass: HomeAssistant,
+    unit: SimulatedUnit,
+    op_status: int,
+    expected: HVACAction | None,
+) -> None:
+    """Only defrost is reported, from `op_status`."""
+    await unit.key_exchange()
+    await unit.push_all({**UNIT_DATAPOINTS, "op_status": op_status})
+
+    state = hass.states.get(CLIMATE_ENTITY_ID)
+    assert state is not None
+    assert state.attributes.get(ATTR_HVAC_ACTION) == expected
 
 
 @pytest.mark.parametrize(

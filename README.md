@@ -91,7 +91,11 @@ To change the callback address later, for example after moving Home Assistant to
   - **Vertical louvre** (swing mode): swing, stop, or hold at a fixed step: position 1 (the highest) to the number of steps the unit reports, up to 15. Units that report no count can only swing or stop.
   - **Horizontal louvre** (horizontal swing mode), on units that have one: swing, stop, or hold at a fixed step: position 1 (the leftmost) to the number of steps the unit reports, up to 15.
 - **Switches:** economy, powerful, outdoor unit low noise, energy saving fan and human sensor, for the features your unit reports and supports (the FGLair app's rules: its capability flags, and human sensor only on units with one). Other on/off settings the unit reports, such as the Wi-Fi LED, are configuration entities.
+  - **HVAC action:** "Defrosting" while the unit defrosts its outdoor coil, otherwise not set. The unit reports no other running state, so heating, cooling and idle are not shown.
+- **Defrost:** on while the unit defrosts. Read every minute, so it can lag by up to a minute.
 - **Demand response:** on while a utility demand-response event limits the unit. Read-only.
+- **Operation restricted** (diagnostic): on while a central controller or building management system blocks some operation of the unit, such as changing the mode or target temperature. Commands it blocks are ignored by the unit.
+- **Oil recovery, Mode conflict, Maintenance, Pump down, Test run** (diagnostic, disabled by default): special states the unit reports, mostly during installation or service. Mode conflict is on when the unit asks for a mode the shared outdoor unit is not running, for example heat while another indoor unit cools.
 - **Outdoor temperature:** created once the unit reports a reading.
 - **Problem** (diagnostic): on while the unit reports an error.
 - **Error code** (diagnostic): the error as the FGLair app shows it, for example `62.6`. Unknown while there is no error.
@@ -105,7 +109,7 @@ To change the callback address later, for example after moving Home Assistant to
 - **IR remote louvre changes are not reported.** The unit reports mode and temperature changes made with the remote, but not louvre changes. The louvre state updates the next time it is read, for example with **Re-read all properties**.
 - **Timers are not supported yet.**
 - **The Wi-Fi adapter may stop answering.** Seen once on an AP-WF3E: it stopped answering on the network until the unit was switched off at the breaker. A UTY-TFSXW1 user reported something similar while adding a unit. The cause is not known yet. See [The unit shows as unavailable](docs/faq.md#the-unit-shows-as-unavailable).
-- **No heating / cooling / defrost activity yet.** No value the unit reports over the local connection has been confirmed to follow what it is doing. One candidate is being checked; see the [FAQ](docs/faq.md#can-it-show-whether-the-unit-is-heating-cooling-or-defrosting).
+- **No heating / cooling / idle activity.** The unit reports only defrost, not whether the compressor is running; see the [FAQ](docs/faq.md#can-it-show-whether-the-unit-is-heating-cooling-or-defrosting).
 
 ## Troubleshooting
 

@@ -129,8 +129,29 @@
   },
   "entity": {
     "binary_sensor": {
+      "defrost": {
+        "name": "Defrost"
+      },
       "demand_control": {
         "name": "Demand response"
+      },
+      "maintenance": {
+        "name": "Maintenance"
+      },
+      "mode_mismatch": {
+        "name": "Mode conflict"
+      },
+      "oil_recovery": {
+        "name": "Oil recovery"
+      },
+      "operation_restricted": {
+        "name": "Operation restricted"
+      },
+      "pump_down": {
+        "name": "Pump down"
+      },
+      "test_run": {
+        "name": "Test run"
       }
     },
     "button": {

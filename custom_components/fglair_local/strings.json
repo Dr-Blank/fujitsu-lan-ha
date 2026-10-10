@@ -131,6 +131,27 @@
     "binary_sensor": {
       "demand_control": {
         "name": "Demand response"
+      },
+      "defrost": {
+        "name": "Defrost"
+      },
+      "operation_restricted": {
+        "name": "Operation restricted"
+      },
+      "oil_recovery": {
+        "name": "Oil recovery"
+      },
+      "mode_mismatch": {
+        "name": "Mode conflict"
+      },
+      "maintenance": {
+        "name": "Maintenance"
+      },
+      "pump_down": {
+        "name": "Pump down"
+      },
+      "test_run": {
+        "name": "Test run"
       }
     },
     "button": {

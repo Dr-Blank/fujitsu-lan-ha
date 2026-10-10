@@ -30,6 +30,7 @@
       'filter_sign_reset': 0,
       'human_det': 1,
       'min_heat': 0,
+      'op_status': 0,
       'operation_mode': 3,
       'operation_source_id': 2,
       'outdoor_low_noise': 0,

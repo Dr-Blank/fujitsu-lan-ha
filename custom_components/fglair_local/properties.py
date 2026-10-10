@@ -203,6 +203,21 @@ AC_INFO1_SETPOINT_FIELDS = {OpMode.COOL: 27, OpMode.HEAT: 29, OpMode.AUTO: 31}
 # Highest plausible `ac_info1` limit, °C x 10; anything above is a bad field.
 MAX_SETPOINT = 400
 
+
+class OpStatus(IntFlag):
+    """`op_status` special states (FGLair app, template A and F adapters)."""
+
+    MAINTENANCE = 1 << 22
+    DEFROST = 1 << 24
+    MODE_MISMATCH = 1 << 25
+    OIL_RECOVERY = 1 << 28
+    PUMP_DOWN = 1 << 29
+    TEST_RUN = 1 << 30
+
+
+# Bits 0-18: a central controller or building system blocks some operation.
+OP_STATUS_LOCKS = (1 << 19) - 1
+
 # Display glyph of each nibble of an error code from 256 up.
 SEVEN_SEGMENT = "0123456789ACFJPU"
 

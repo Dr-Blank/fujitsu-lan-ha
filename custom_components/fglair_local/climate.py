@@ -16,6 +16,7 @@ from homeassistant.components.climate.const import (
     SWING_OFF,
     SWING_ON,
     ClimateEntityFeature,
+    HVACAction,
     HVACMode,
 )
 from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
@@ -34,6 +35,7 @@ from .properties import (
     HORIZONTAL_DIRECTION,
     HORIZONTAL_NUM_DIR,
     HORIZONTAL_SWING,
+    OP_STATUS,
     OPERATION_MODE,
     VERTICAL_DIRECTION,
     VERTICAL_NUM_DIR,
@@ -41,6 +43,7 @@ from .properties import (
     Capability,
     FanSpeed,
     OpMode,
+    OpStatus,
     Positions,
     decode_horizontal_positions,
     decode_sensed_temperature,
@@ -281,6 +284,13 @@ class FglairLocalClimate(FglairLocalEntity, RestoreEntity, ClimateEntity):
         if (raw := self._value(OPERATION_MODE)) is None:
             return None
         return OP_TO_HVAC.get(OpMode(raw)) if raw in OpMode else None
+
+    @property
+    def hvac_action(self) -> HVACAction | None:
+        """Defrosting, else unknown: the unit reports no other running state."""
+        if (raw := self._value(OP_STATUS)) is not None and raw & OpStatus.DEFROST:
+            return HVACAction.DEFROSTING
+        return None
 
     @property
     def current_temperature(self) -> float | None:
