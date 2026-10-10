@@ -98,7 +98,8 @@ To change the callback address later, for example after moving Home Assistant to
 - **Oil recovery, Mode conflict, Maintenance, Pump down, Test run** (diagnostic, disabled by default): special states the unit reports, mostly during installation or service. Mode conflict is on when the unit asks for a mode the shared outdoor unit is not running, for example heat while another indoor unit cools.
 - **Outdoor temperature:** created once the unit reports a reading.
 - **Problem** (diagnostic): on while the unit reports an error.
-- **Error code** (diagnostic): the error as the FGLair app shows it, for example `62.6`. Unknown while there is no error.
+- **Error message** (diagnostic): what the error is, for example "Outdoor unit main board fault", or "No error". See [Error codes](docs/error-codes.md).
+- **Error code** (diagnostic): the error as the FGLair app and the wired remote controller show it, for example `62.6`. Unknown while there is no error.
 - **Re-read all properties:** asks the unit for every value again.
 - Raw sensors for other properties the unit reports, disabled by default.
 

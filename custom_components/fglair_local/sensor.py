@@ -17,6 +17,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import FglairLocalConfigEntry, FglairLocalDevice
 from .entity import FglairLocalEntity, async_add_when_reported
+from .errors import ERROR_STATES, decode_error
 from .properties import (
     ERROR_CODE,
     OUTDOOR_TEMPERATURE,
@@ -35,12 +36,14 @@ class FglairLocalSensorEntityDescription(SensorEntityDescription):
     """Sensor fed by one property."""
 
     decode: Callable[[Any], float | str | None]
+    prop: str
 
 
 SENSORS = (
     FglairLocalSensorEntityDescription(
         key=OUTDOOR_TEMPERATURE,
         translation_key=OUTDOOR_TEMPERATURE,
+        prop=OUTDOOR_TEMPERATURE,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
@@ -50,8 +53,18 @@ SENSORS = (
     FglairLocalSensorEntityDescription(
         key=ERROR_CODE,
         translation_key=ERROR_CODE,
+        prop=ERROR_CODE,
         entity_category=EntityCategory.DIAGNOSTIC,
         decode=decode_error_code,
+    ),
+    FglairLocalSensorEntityDescription(
+        key="error_message",
+        translation_key="error_message",
+        prop=ERROR_CODE,
+        device_class=SensorDeviceClass.ENUM,
+        options=ERROR_STATES,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        decode=decode_error,
     ),
 )
 
@@ -67,7 +80,10 @@ async def async_setup_entry(
         entry,
         async_add_entities,
         [
-            (description.key, partial(FglairLocalSensor, device, description))
+            (
+                description.prop,
+                partial(FglairLocalSensor, device, description),
+            )
             for description in SENSORS
         ],
         ready=is_numeric,
@@ -107,9 +123,8 @@ class FglairLocalSensor(FglairLocalEntity, SensorEntity):
     @property
     def native_value(self) -> float | str | None:
         """Decoded value."""
-        return self.entity_description.decode(
-            self.device.values.get(self.entity_description.key)
-        )
+        description = self.entity_description
+        return description.decode(self.device.values.get(description.prop))
 
 
 class FglairLocalRawSensor(FglairLocalEntity, SensorEntity):

@@ -11,6 +11,8 @@ from homeassistant.helpers import entity_registry as er
 from . import SimulatedUnit
 from .const import ERROR_CODE_ENTITY_ID, OUTDOOR_ENTITY_ID
 
+ERROR_ENTITY_ID = "sensor.air_conditioner_error_message"
+
 RAW_ENTITY_ID = "sensor.air_conditioner_raw_mystery_value"
 
 
@@ -86,6 +88,31 @@ async def test_error_code(hass: HomeAssistant, unit: SimulatedUnit) -> None:
     state = hass.states.get(ERROR_CODE_ENTITY_ID)
     assert state is not None
     assert state.state == STATE_UNKNOWN
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        pytest.param(0, "no_error", id="none"),
+        pytest.param(18, "indoor_fan_motor", id="legacy"),
+        pytest.param(11, "other", id="legacy_unlisted"),
+        pytest.param(1574, "outdoor_main_pcb", id="group"),
+        pytest.param(1568, "outdoor_main_pcb", id="group_detail_0"),
+        pytest.param(1523, "indoor_other", id="group_letter"),
+        pytest.param(4095, "other", id="group_unlisted"),
+    ],
+)
+async def test_error(
+    hass: HomeAssistant, unit: SimulatedUnit, value: int, expected: str
+) -> None:
+    """The error says what failed: per code below 256, per `NN` of `NN.x` above."""
+    await unit.key_exchange()
+
+    await unit.push("error_code", value)
+
+    state = hass.states.get(ERROR_ENTITY_ID)
+    assert state is not None
+    assert state.state == expected
 
 
 async def test_repeated_value_is_not_rewritten(
