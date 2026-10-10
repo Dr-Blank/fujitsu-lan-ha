@@ -11,7 +11,22 @@
   ],
   "dhcp": [
     {
+      "hostname": "ap-wa*"
+    },
+    {
+      "hostname": "ap-wb*"
+    },
+    {
+      "hostname": "ap-wc*"
+    },
+    {
+      "hostname": "ap-wd*"
+    },
+    {
       "hostname": "ap-wf*"
+    },
+    {
+      "hostname": "ap-wg*"
     },
     {
       "hostname": "ac-uty-*"

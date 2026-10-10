@@ -25,7 +25,7 @@ With debug logging on, a hung adapter shows `registration failed: TimeoutError()
 
 ## Give the unit a fixed IP address
 
-Home Assistant reaches the unit at the IP address saved when it was added. Reserve that address for the adapter in your router (often called a DHCP reservation or static lease), so it keeps the same one after a power cut or router restart. The adapter usually shows up in the router's device list with a hostname of `AP-WF…` (AP-WF3E and similar) or `AC-UTY-` followed by its MAC address (UTY adapters), unless it was renamed there.
+Home Assistant reaches the unit at the IP address saved when it was added. Reserve that address for the adapter in your router (often called a DHCP reservation or static lease), so it keeps the same one after a power cut or router restart. The adapter usually shows up in the router's device list with a hostname of `AP-WF…` (AP-WF3E and similar) or `AC-UTY-` followed by its MAC address (UTY adapters, and probably other adapter families), unless it was renamed there.
 
 If the address changes anyway:
 

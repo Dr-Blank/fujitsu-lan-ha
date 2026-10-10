@@ -4,9 +4,20 @@ Home Assistant integration that controls Fujitsu air conditioners with an FGLair
 
 ## Supported adapters
 
-Tested on the AP-WF3E adapter, and reported working on the UTY-TFSXW1 ([#1](https://github.com/Dr-Blank/fujitsu-lan-ha/issues/1)). Other FGLair Wi-Fi adapters speak the same protocol and should work without changes: the integration reads which modes, fan speeds and louvres your unit has from the unit itself.
+The integration reads which modes, fan speeds and louvres your unit has from the unit itself, so adapters that speak the same protocol should work without changes. The adapter families below come from the FGLair app's own adapter list; only two have been tried on a real unit.
 
-If you try it with another adapter, please [open an issue](https://github.com/Dr-Blank/fujitsu-lan-ha/issues) saying whether it works. Include the adapter model (printed on the adapter, for example AP-WF3E or UTY-TFSXF3), your indoor unit model, and the diagnostics file from the device page. Working reports help as much as broken ones.
+| Adapter | How it was checked | Notes |
+| --- | --- | --- |
+| AP-WF3E | Tested on a unit | |
+| UTY-TFSXW1 | Reported working ([#1](https://github.com/Dr-Blank/fujitsu-lan-ha/issues/1)) | |
+| AP-WF1E, AP-WF2E, AP-WF4E | From the FGLair app, untested | Same adapter generation as the AP-WF3E. |
+| AP-WA1E to AP-WA6E, AP-WC1E to AP-WC4E, AP-WD1E | From the FGLair app, untested | The app handles them like the AP-WF adapters. |
+| AP-WB1E to AP-WB4E | From the FGLair app, untested | **Partly supported.** These adapters set the louvres and report defrost through other values, which the integration does not read yet: expect no louvre control, and the Defrost sensor and the HVAC action never showing a defrost. The unit's target temperature moves in whole degrees. |
+| AP-WG | Listed in the FGLair app as a planned model, untested | |
+
+Units with these adapters are discovered automatically: the integration looks for the network names the adapters give themselves (`AP-W…` or `AC-UTY-` followed by the MAC address). The names of the untested families are taken from the app and may differ in practice; if yours is not discovered, add it by hand.
+
+If you try it with another adapter, please [open an issue](https://github.com/Dr-Blank/fujitsu-lan-ha/issues) saying whether it works. Include the adapter model (printed on the adapter, for example AP-WF3E or UTY-TFSXF3), your indoor unit model, the adapter's name in your router's device list, and the diagnostics file from the device page. Working reports help as much as broken ones. Support for the AP-WB louvres needs someone with such an adapter to test it.
 
 Only Fujitsu units set up in the FGLair app are supported. Other brands' appliances that also use the Ayla platform use different property names and will not work.
 
