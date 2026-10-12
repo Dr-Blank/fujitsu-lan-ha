@@ -130,9 +130,10 @@ READ_BACK: dict[str, tuple[str, ...]] = {
 
 # Read after the prime set, so the entities that matter fill first.
 EXTRA_PROPERTIES = (*TOGGLE_PROPERTIES, *RESET_PROPERTIES, *INFO_PROPERTIES)
-# Not pushed when they change, so polled. Candidates for what the unit is
-# doing: monitor1 field 8 was 1 while the compressor ran (AP-WF3E, one sample).
-STATUS_PROPERTIES = (OP_STATUS, MONITOR1)
+# Pushed rarely or never when they change, so polled. Candidates for what the
+# unit is doing: monitor1 field 8 was 1 while the compressor ran (AP-WF3E, one
+# sample).
+POLLED_PROPERTIES = (DISPLAY_TEMPERATURE, OUTDOOR_TEMPERATURE, OP_STATUS, MONITOR1)
 
 
 class OpMode(IntEnum):

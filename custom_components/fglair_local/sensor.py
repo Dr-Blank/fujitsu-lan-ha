@@ -126,6 +126,10 @@ class FglairLocalSensor(FglairLocalEntity, SensorEntity):
         description = self.entity_description
         return description.decode(self.device.values.get(description.prop))
 
+    async def async_update(self) -> None:
+        """Re-read the property, for `homeassistant.update_entity`."""
+        self.device.request(self.entity_description.prop)
+
 
 class FglairLocalRawSensor(FglairLocalEntity, SensorEntity):
     """Undecoded value of one property, named after it."""

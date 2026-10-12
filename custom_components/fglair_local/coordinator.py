@@ -34,14 +34,13 @@ from .const import (
 from .properties import (
     BOOLEAN_PROPERTIES,
     DEVICE_CAPABILITIES,
-    DISPLAY_TEMPERATURE,
     EXTRA_PROPERTIES,
     HANGING_ADAPTERS,
     MCU_FW_VERSION,
     MODEL_NAME,
+    POLLED_PROPERTIES,
     PRIME_PROPERTIES,
     READ_BACK,
-    STATUS_PROPERTIES,
     decode_adapter_model,
     decode_firmware_version,
     is_reported,
@@ -58,9 +57,8 @@ READ_BACK_DELAY = 2.0
 COMMAND_TIMEOUT = 15.0
 # However often writes keep coming, read back at least this often.
 READ_BACK_MAX_DELAY = 60.0
-# An idle unit is asked for something now and then, so a hung one is noticed.
-PROBE_INTERVAL = 60.0
-STATUS_POLL_INTERVAL = 60.0
+# Also how a hung unit is noticed: it leaves the reads uncollected.
+POLL_INTERVAL = 60.0
 WATCHDOG_INTERVAL = timedelta(seconds=5)
 # Unavailable only after 30 s of silence already; brief drops stay out of the log.
 UNAVAILABLE_LOG_DELAY = 30.0
@@ -97,7 +95,7 @@ class FglairLocalDevice:
         self._cancel_read_back: CALLBACK_TYPE | None = None
         self._read_back_deadline: float | None = None
         self._was_available = False
-        self._status_polled_at = 0.0
+        self._polled_at = 0.0
         self._unavailable_since: float | None = time.monotonic()
         self._unavailable_logged = False
         self._issue_id = f"adapter_unresponsive_{self.dsn}"
@@ -146,18 +144,9 @@ class FglairLocalDevice:
 
     @callback
     def _watchdog(self, _now: datetime | None = None) -> None:
-        if (
-            self.lan.connected
-            and not self.lan.pending
-            and time.monotonic() - (self.lan.last_seen or 0.0) > PROBE_INTERVAL
-        ):
-            self.lan.request_properties((DISPLAY_TEMPERATURE,))
-        if (
-            self.lan.connected
-            and time.monotonic() - self._status_polled_at >= STATUS_POLL_INTERVAL
-        ):
-            self._status_polled_at = time.monotonic()
-            self.lan.request_properties(STATUS_PROPERTIES)
+        if self.lan.connected and time.monotonic() - self._polled_at >= POLL_INTERVAL:
+            self._polled_at = time.monotonic()
+            self.lan.request_properties(POLLED_PROPERTIES)
         if self.available != self._was_available:
             self._notify()
         self._track_availability()
@@ -289,6 +278,11 @@ class FglairLocalDevice:
         """Re-read every known property."""
         self.lan.request_properties((*PRIME_PROPERTIES, *EXTRA_PROPERTIES))
 
+    def request(self, name: str) -> None:
+        """Re-read one property; its value arrives as a push."""
+        if self.lan.connected:
+            self.lan.request_properties((name,))
+
     def _schedule_read_back(self, names: tuple[str, ...]) -> None:
         # One read per name however many writes land before the delay ends.
         self._read_back.update(names)
@@ -347,7 +341,7 @@ class FglairLocalDevice:
         _LOGGER.debug("%s: connected=%s", self.dsn, connected)
         if connected:
             # The session's first reads include them.
-            self._status_polled_at = time.monotonic()
+            self._polled_at = time.monotonic()
         else:
             self._confirmed.clear()
             # The unit may change state while unreachable; show unknown until re-read.

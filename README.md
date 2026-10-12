@@ -1,6 +1,6 @@
 # Fujitsu FGLair Local
 
-Home Assistant integration that controls Fujitsu air conditioners with an FGLair Wi-Fi adapter directly over your network, using the adapter's Ayla LAN mode. No cloud is used after setup, and state changes are pushed by the unit rather than polled.
+Home Assistant integration that controls Fujitsu air conditioners with an FGLair Wi-Fi adapter directly over your network, using the adapter's Ayla LAN mode. No cloud is used after setup. The unit pushes most state changes; the few it rarely pushes, such as the room and outdoor temperature, are read every minute.
 
 ## Supported adapters
 
@@ -98,7 +98,7 @@ To change the callback address later, for example after moving Home Assistant to
 
 ## Entities
 
-- **Climate:** on/off, HVAC mode, target temperature and fan speed (including quiet). The target range follows the mode, as in the FGLair app: 16–30 °C in heat, 18–30 °C otherwise, or the range the unit reports.
+- **Climate:** on/off, HVAC mode, target temperature, fan speed (including quiet) and room temperature. The room temperature is read every minute; to read it more often, see the [FAQ](docs/faq.md#how-often-is-the-room-temperature-updated). The target range follows the mode, as in the FGLair app: 16–30 °C in heat, 18–30 °C otherwise, or the range the unit reports.
   - **Vertical louvre** (swing mode): swing, stop, or hold at a fixed step: position 1 (the highest) to the number of steps the unit reports, up to 15. Units that report no count can only swing or stop.
   - **Horizontal louvre** (horizontal swing mode), on units that have one: swing, stop, or hold at a fixed step: position 1 (the leftmost) to the number of steps the unit reports, up to 15.
 - **Switches:** economy, powerful, outdoor unit low noise, energy saving fan and human sensor, for the features your unit reports and supports (the FGLair app's rules: its capability flags, and human sensor only on units with one). Other on/off settings the unit reports, such as the Wi-Fi LED, are configuration entities.
@@ -107,7 +107,7 @@ To change the callback address later, for example after moving Home Assistant to
 - **Demand response:** on while a utility demand-response event limits the unit. Read-only.
 - **Operation restricted** (diagnostic): on while a central controller or building management system blocks some operation of the unit, such as changing the mode or target temperature. Commands it blocks are ignored by the unit.
 - **Oil recovery, Mode conflict, Maintenance, Pump down, Test run** (diagnostic, disabled by default): special states the unit reports, mostly during installation or service. Mode conflict is on when the unit asks for a mode the shared outdoor unit is not running, for example heat while another indoor unit cools.
-- **Outdoor temperature:** created once the unit reports a reading.
+- **Outdoor temperature:** created once the unit reports a reading. Read every minute.
 - **Problem** (diagnostic): on while the unit reports an error.
 - **Error message** (diagnostic): what the error is, for example "Outdoor unit main board fault", or "No error". See [Error codes](docs/error-codes.md).
 - **Error code** (diagnostic): the error as the FGLair app and the wired remote controller show it, for example `62.6`. Unknown while there is no error.

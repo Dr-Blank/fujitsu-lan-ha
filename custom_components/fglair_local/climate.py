@@ -297,6 +297,10 @@ class FglairLocalClimate(FglairLocalEntity, RestoreEntity, ClimateEntity):
         """Room temperature."""
         return decode_sensed_temperature(self.device.values.get(DISPLAY_TEMPERATURE))
 
+    async def async_update(self) -> None:
+        """Re-read the room temperature, for `homeassistant.update_entity`."""
+        self.device.request(DISPLAY_TEMPERATURE)
+
     @property
     def fan_mode(self) -> str | None:
         """Current fan speed."""

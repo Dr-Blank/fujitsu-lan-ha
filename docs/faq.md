@@ -65,6 +65,28 @@ Heating, cooling and idle, no. The FGLair app does not show them either: the uni
 
 One field of `monitor1` went from 1 to 0 once on an AP-WF3E when the compressor stopped. If you want to help check it, take diagnostics twice in the same mode: once while the compressor runs (cold or hot air comes out) and once after it stops (raise the target above the room temperature when cooling, or lower it when heating). Wait a minute after the air changes before each download, then attach both files to an issue and say what the unit was doing.
 
+## How often is the room temperature updated?
+
+Every minute, and whenever the unit pushes a new value. The unit rarely pushes it, so the integration reads the room and outdoor temperature every minute, which is enough for most automations.
+
+If an automation needs it more often, refresh it yourself with the `homeassistant.update_entity` action. On the climate entity it reads the room temperature; on the outdoor temperature sensor, the outdoor temperature. The new value arrives a second or so after the action, not when it returns. For example, every 15 seconds while heating:
+
+```yaml
+triggers:
+  - trigger: time_pattern
+    seconds: "/15"
+conditions:
+  - condition: state
+    entity_id: climate.living_room
+    state: heat
+actions:
+  - action: homeassistant.update_entity
+    target:
+      entity_id: climate.living_room
+```
+
+There is no option for the interval, following Home Assistant's guidance for integrations: one sensible default, and `homeassistant.update_entity` for anyone who needs more. This way you choose when the extra reads happen, for example only while heating, instead of at all times. Each read is a request to the Wi-Fi adapter, and some adapters stop answering for reasons not known yet (see [The unit shows as unavailable](#the-unit-shows-as-unavailable)), so refresh only as often as you need. Short intervals have not been tested; if the unit starts showing as unavailable, slow down.
+
 ## Can I use another integration at the same time?
 
 Another local controller, such as the AirCon add-on, is disconnected when this integration connects, as only one local controller is allowed at a time. A cloud integration that refreshes the unit, such as Home Assistant's built-in Fujitsu FGLair integration, makes the unit ignore local commands for about 2 minutes after each refresh, so disable it for units added here. See [Known limitations](../README.md#known-limitations).

@@ -16,10 +16,15 @@ from homeassistant.setup import async_setup_component
 
 from . import SimulatedUnit, advance, read_resource
 from .const import CALLBACK_HOST, DSN, HOST, LANIP_KEY, UNIT_DATAPOINTS
-from custom_components.fglair_local.coordinator import STATUS_POLL_INTERVAL
+from custom_components.fglair_local.coordinator import POLL_INTERVAL
 
 # Shaped like what an AP-WF3E reports while off, shortened.
-STATUS = {"op_status": 0, "monitor1": "65535,65535,0,0,:,65535"}
+POLLED = {
+    "display_temperature": 7850,
+    "outdoor_temperature": 8700,
+    "op_status": 0,
+    "monitor1": "65535,65535,0,0,:,65535",
+}
 
 
 @pytest.fixture(autouse=True)
@@ -89,14 +94,14 @@ async def test_diagnostics_show_polled_status(
     await unit.key_exchange()
     await unit.drain()
 
-    await advance(hass, freezer, STATUS_POLL_INTERVAL)
+    await advance(hass, freezer, POLL_INTERVAL)
     assert [read_resource(command) for command in await unit.drain()] == [
-        f"property.json?name={name}" for name in STATUS
+        f"property.json?name={name}" for name in POLLED
     ]
-    await unit.push_all(STATUS)
+    await unit.push_all(POLLED)
 
-    assert init_integration.runtime_data.values == STATUS
+    assert init_integration.runtime_data.values == POLLED
     diagnostics = await get_diagnostics_for_config_entry(
         hass, hass_client, init_integration
     )
-    assert diagnostics["values"] == STATUS
+    assert diagnostics["values"] == POLLED

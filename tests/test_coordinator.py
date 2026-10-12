@@ -15,9 +15,14 @@ from homeassistant.components.climate import (
     ATTR_SWING_HORIZONTAL_MODE,
     ATTR_SWING_MODE,
 )
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.components.homeassistant import (
+    DOMAIN as HA_DOMAIN,
+    SERVICE_UPDATE_ENTITY,
+)
+from homeassistant.const import ATTR_ENTITY_ID, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, issue_registry as ir
+from homeassistant.setup import async_setup_component
 
 from . import SimulatedUnit, advance, read_resource, written
 from .const import (
@@ -25,6 +30,7 @@ from .const import (
     DSN,
     ECONOMY_ENTITY_ID,
     HOST,
+    OUTDOOR_ENTITY_ID,
     REFRESH_ENTITY_ID,
     SETTINGS_SUPPORTED,
     UNIT_DATAPOINTS,
@@ -33,11 +39,10 @@ from custom_components.fglair_local.const import DOMAIN
 from custom_components.fglair_local.coordinator import (
     COMMAND_TIMEOUT,
     FAQ_URL,
-    PROBE_INTERVAL,
+    POLL_INTERVAL,
     READ_BACK_DELAY,
     READ_BACK_MAX_DELAY,
     REPAIR_DELAY,
-    STATUS_POLL_INTERVAL,
     UNAVAILABLE_LOG_DELAY,
     WATCHDOG_INTERVAL,
     FglairLocalDevice,
@@ -48,7 +53,7 @@ FIRMWARE = {"model_name": "TESTMODEL01", "mcu_fw_version": "0.0.1,:,:,:,"}
 COORDINATOR_LOGGER = "custom_components.fglair_local.coordinator"
 HANGING_MODEL = "30KJTA-B : AP-WF3E"
 # Polled every minute, so they also show in a minute's commands.
-STATUS_READS = ("op_status", "monitor1")
+POLLED_READS = ("display_temperature", "outdoor_temperature", "op_status", "monitor1")
 ISSUE_ID = f"adapter_unresponsive_{DSN}"
 
 
@@ -598,7 +603,7 @@ async def test_read_back_is_debounced(
     )
     await advance(hass, freezer, READ_BACK_MAX_DELAY)
     assert [read_resource(command) for command in await unit.drain()] == reads(
-        *STATUS_READS
+        *POLLED_READS
     )
 
 
@@ -625,8 +630,8 @@ async def test_read_back_is_not_postponed_forever(
 
     # The first status poll falls due on the same tick, in no set order.
     await advance(hass, freezer, interval)
-    assert sorted(read_resource(command) for command in await unit.drain()) == reads(
-        "min_heat", *sorted(STATUS_READS)
+    assert sorted(read_resource(command) for command in await unit.drain()) == sorted(
+        reads("min_heat", *POLLED_READS)
     )
 
 
@@ -662,7 +667,7 @@ async def test_stall_counted_from_queueing(
     await unit.key_exchange()
     await unit.push_all(UNIT_DATAPOINTS)
     await unit.drain()
-    await advance(hass, freezer, PROBE_INTERVAL - WATCHDOG)
+    await advance(hass, freezer, POLL_INTERVAL - WATCHDOG)
 
     device.set_property("fan_speed", 1)
     await advance(hass, freezer, COMMAND_TIMEOUT - 1)
@@ -676,21 +681,18 @@ async def test_stall_counted_from_queueing(
     assert state_of(hass, CLIMATE_ENTITY_ID) == "cool"
 
 
-async def test_idle_unit_is_probed(
+async def test_unit_ignoring_poll_is_unavailable(
     hass: HomeAssistant,
     unit: SimulatedUnit,
     device: FglairLocalDevice,
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    """A unit that has been quiet for a while is asked for the room temperature.
-
-    One that never answers is shown unavailable.
-    """
+    """A quiet unit is still asked for something, so one that hung is noticed."""
     await unit.key_exchange()
     await unit.push_all(UNIT_DATAPOINTS)
     await unit.drain()
 
-    await advance(hass, freezer, PROBE_INTERVAL - 1)
+    await advance(hass, freezer, POLL_INTERVAL - 1)
     assert not device.lan.pending
 
     await advance(hass, freezer, 1 + WATCHDOG)
@@ -699,28 +701,75 @@ async def test_idle_unit_is_probed(
     assert state_of(hass, CLIMATE_ENTITY_ID) == STATE_UNAVAILABLE
 
     assert [read_resource(command) for command in await unit.drain()] == reads(
-        "display_temperature", *STATUS_READS
+        *POLLED_READS
     )
 
 
-async def test_status_is_polled(
+async def test_polled_while_unit_answers(
     hass: HomeAssistant, unit: SimulatedUnit, freezer: FrozenDateTimeFactory
 ) -> None:
-    """What the unit does not push is read every minute while connected.
+    """What the unit rarely pushes is read every minute while it answers.
 
-    The session's first reads include it, so the first poll is a minute later.
+    Every watchdog tick runs, as it does live.
     """
     await unit.key_exchange()
+    await unit.push_all(UNIT_DATAPOINTS)
     await unit.drain()
 
-    for _ in range(2):
-        await advance(hass, freezer, STATUS_POLL_INTERVAL - 1)
-        assert await unit.drain() == []
+    for room in (7900, 7950, 8000):
+        commands = []
+        for _ in range(int(POLL_INTERVAL // WATCHDOG)):
+            await advance(hass, freezer, WATCHDOG)
+            commands += await unit.drain()
+        assert [read_resource(command) for command in commands] == reads(*POLLED_READS)
 
-        await advance(hass, freezer, 1 + WATCHDOG)
-        assert [read_resource(command) for command in await unit.drain()] == reads(
-            *STATUS_READS
-        )
+        await unit.push("display_temperature", room)
+        state = hass.states.get(CLIMATE_ENTITY_ID)
+        assert state is not None
+        assert state.attributes[ATTR_CURRENT_TEMPERATURE] == (room - 5000) / 100
+
+
+@pytest.mark.parametrize(
+    ("entity_id", "name"),
+    [
+        pytest.param(CLIMATE_ENTITY_ID, "display_temperature", id="room"),
+        pytest.param(OUTDOOR_ENTITY_ID, "outdoor_temperature", id="outdoor"),
+    ],
+)
+async def test_update_entity_reads_property(
+    hass: HomeAssistant, unit: SimulatedUnit, entity_id: str, name: str
+) -> None:
+    """`homeassistant.update_entity` re-reads the entity's value at once."""
+    assert await async_setup_component(hass, HA_DOMAIN, {})
+    await unit.key_exchange()
+    await unit.push_all(UNIT_DATAPOINTS)
+    await unit.drain()
+
+    await hass.services.async_call(
+        HA_DOMAIN, SERVICE_UPDATE_ENTITY, {ATTR_ENTITY_ID: entity_id}, blocking=True
+    )
+
+    assert [read_resource(command) for command in await unit.drain()] == reads(name)
+
+
+async def test_update_entity_without_session(
+    hass: HomeAssistant, unit: SimulatedUnit, device: FglairLocalDevice
+) -> None:
+    """Nothing is queued while disconnected."""
+    assert await async_setup_component(hass, HA_DOMAIN, {})
+    await unit.key_exchange()
+    await unit.push_all(UNIT_DATAPOINTS)
+    await unit.drain()
+    device.lan._drop_session()  # noqa: SLF001
+
+    await hass.services.async_call(
+        HA_DOMAIN,
+        SERVICE_UPDATE_ENTITY,
+        {ATTR_ENTITY_ID: CLIMATE_ENTITY_ID},
+        blocking=True,
+    )
+
+    assert not device.lan.pending
 
 
 async def _never_connect(unit: SimulatedUnit, device: FglairLocalDevice) -> None:
@@ -751,7 +800,7 @@ async def test_status_not_polled_while_disconnected(
     """Nothing is queued for a unit without a session."""
     await disconnect(unit, device)
 
-    await advance(hass, freezer, STATUS_POLL_INTERVAL + WATCHDOG)
+    await advance(hass, freezer, POLL_INTERVAL + WATCHDOG)
 
     assert not device.lan.connected
     assert not device.lan.pending
