@@ -1,5 +1,7 @@
 """Tests for the `/local_lan` view the unit dials into."""
 
+import logging
+
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.typing import ClientSessionGenerator
@@ -92,3 +94,14 @@ async def test_forged_datapoint_is_refused(unit: SimulatedUnit) -> None:
     resp = await unit.client.post("/local_lan/property/datapoint.json", json=forged)
 
     assert resp.status == 400
+
+
+async def test_query_string_logged(
+    unit: SimulatedUnit, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A reply to a read carries its cmd_id in the query string; the log keeps it."""
+    caplog.set_level(logging.DEBUG, logger="aioayla_lan.server")
+
+    await unit.client.get("/local_lan/commands.json?cmd_id=7&status=200")
+
+    assert "GET commands.json?cmd_id=7&status=200, 0 bytes: 400" in caplog.text

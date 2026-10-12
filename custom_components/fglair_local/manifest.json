@@ -40,7 +40,7 @@
     "aioayla_lan"
   ],
   "requirements": [
-    "aioayla-lan==0.2.2"
+    "aioayla-lan==0.2.3"
   ],
   "version": "0.2.5"
 }

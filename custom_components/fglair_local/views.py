@@ -29,7 +29,11 @@ class AylaLanView(HomeAssistantView):
 
     async def _handle(self, request: web.Request, path: str) -> web.Response:
         status, body = self._server.handle(
-            request.remote, request.method, path, await request.read()
+            request.remote,
+            request.method,
+            path,
+            await request.read(),
+            request.query_string,
         )
         return self.json(body, status)
 
