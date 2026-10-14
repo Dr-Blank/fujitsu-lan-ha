@@ -394,6 +394,19 @@
       "title": "{name} is not responding"
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "restart_settle": "Wait after the adapter restarts"
+        },
+        "data_description": {
+          "restart_settle": "After the adapter goes away for more than about 30 seconds, wait 10 minutes once it answers again before connecting. Turn on only if the unit gets stuck after its adapter restarts (see the FAQ); a Wi-Fi dropout gets the same wait."
+        },
+        "title": "Adapter"
+      }
+    }
+  },
   "selector": {
     "region": {
       "options": {

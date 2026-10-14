@@ -11,6 +11,7 @@
       'lanip_key': '**REDACTED**',
       'lanip_key_id': 1234,
     }),
+    'restart_settle': 0.0,
     'seconds_pending': 5.0,
     'seconds_since_seen': 5.0,
     'values': dict({
@@ -51,6 +52,7 @@
       'lanip_key': '**REDACTED**',
       'lanip_key_id': 1234,
     }),
+    'restart_settle': 0.0,
     'seconds_pending': None,
     'seconds_since_seen': None,
     'values': dict({

@@ -402,5 +402,18 @@
       "title": "{name} is not responding",
       "description": "The {adapter} Wi-Fi adapter of {name} has not answered at {host} for more than 10 minutes. This adapter has been seen to stop answering on the network until the air conditioner was power-cycled. Fujitsu's procedure:\n\n1. Turn the air conditioner off with the remote.\n2. Switch it off at the breaker or mains (the remote alone leaves the adapter powered) and wait at least 5 minutes.\n3. Switch it back on and wait up to 15 minutes for the adapter to rejoin Wi-Fi. Home Assistant reconnects by itself and this message goes away.\n4. If it does not come back, repeat these steps.\n\nIf the unit still does not come back, check that its IP address is still {host}. Reserve its address in your router so it does not change, or use **Reconfigure** on the integration entry to enter the new one."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Adapter",
+        "data": {
+          "restart_settle": "Wait after the adapter restarts"
+        },
+        "data_description": {
+          "restart_settle": "After the adapter goes away for more than about 30 seconds, wait 10 minutes once it answers again before connecting. Turn on only if the unit gets stuck after its adapter restarts (see the FAQ); a Wi-Fi dropout gets the same wait."
+        }
+      }
+    }
   }
 }

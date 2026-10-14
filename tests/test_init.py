@@ -10,11 +10,13 @@ from pytest_homeassistant_custom_component.typing import ClientSessionGenerator
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import CONF_HOST, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.setup import async_setup_component
 
 from . import SimulatedUnit
 from .const import ECONOMY_ENTITY_ID, ENTRY_DATA, SETTINGS_SUPPORTED
-from custom_components.fglair_local.const import CONF_DSN, DOMAIN
+from custom_components.fglair_local.const import CONF_DSN, CONF_RESTART_SETTLE, DOMAIN
+from custom_components.fglair_local.coordinator import RESTART_SETTLE
 from custom_components.fglair_local.views import AylaLanView
 
 
@@ -140,3 +142,22 @@ async def test_unload_stops_registering(
     assert cancelled.is_set()
     resp = await unit.client.get("/local_lan/commands.json")
     assert resp.status == 403
+
+
+async def test_options_restart_settle(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Turning the wait on reloads the entry with it applied."""
+    result = await hass.config_entries.options.async_init(init_integration.entry_id)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "init"
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_RESTART_SETTLE: True}
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert init_integration.options == {CONF_RESTART_SETTLE: True}
+    assert init_integration.state is ConfigEntryState.LOADED
+    assert init_integration.runtime_data.lan.restart_settle == RESTART_SETTLE

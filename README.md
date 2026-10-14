@@ -84,6 +84,10 @@ Open the entry's **⋮** menu and choose **Reconfigure** to change, without remo
 
 The unit is checked with the new settings before they are saved.
 
+### Options
+
+The entry's **Configure** button has one setting, **Wait after the adapter restarts**, off by default. Turn it on only if the unit gets stuck after its adapter restarts; see the [FAQ](docs/faq.md#the-unit-gets-stuck-after-its-adapter-restarts).
+
 ### Callback address
 
 The unit connects back to Home Assistant at an address and port Home Assistant gives it. By default this is the address Home Assistant uses to reach the unit, on Home Assistant's own web server port.

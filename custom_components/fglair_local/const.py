@@ -7,6 +7,7 @@ CONF_LANIP_KEY = "lanip_key"
 CONF_LANIP_KEY_ID = "lanip_key_id"
 CONF_CALLBACK_HOST = "callback_host"
 CONF_CALLBACK_PORT = "callback_port"
+CONF_RESTART_SETTLE = "restart_settle"
 
 # Public FGLair mobile-app credentials: they identify the app, not the user.
 FGLAIR_APPS: dict[str, tuple[str, str]] = {

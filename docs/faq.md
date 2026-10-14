@@ -23,6 +23,16 @@ How you notice it:
 
 With debug logging on, a hung adapter shows `registration failed: TimeoutError()` (or `registration failed:` followed by nothing, on 0.2.0 and older) every 10 seconds.
 
+## The unit gets stuck after its adapter restarts
+
+A UTY adapter (UTY-TFSXW1 and similar) can come back from a restart stuck: it answers for a few seconds, then takes one command per connection and nothing else. The entities flicker between unavailable and unknown, and a Home Assistant restart does not help. Registering with the adapter too soon after it restarts seems to cause this. Adapters without internet access restart about once a day, roughly 24 hours after they were powered on, so there it can happen daily.
+
+If you see this, turn on **Wait after the adapter restarts** (Settings > Devices & services > Fujitsu FGLair Local > the unit's **Configure**). When the adapter goes away for more than about 30 seconds, Home Assistant then waits until it answers on the network again, leaves it alone for 10 minutes, and only then connects. The unit shows as unavailable meanwhile. Home Assistant can't tell a restart from a Wi-Fi dropout, so a dropout gets the same wait: leave the setting off if the unit is on weak Wi-Fi and has not got stuck.
+
+With debug logging on, a restart shows as a few `registration failed:` lines, then `session lost`, `unreachable, waiting for it to come back` and `reachable again, registering in 600 s`, then a new session about 10 minutes later.
+
+If a unit is stuck, clear it by hand: disable its entry under **Settings > Devices & services**, switch the air conditioner off at the breaker for a minute, switch it back on, wait 10 minutes, then enable the entry again.
+
 ## Give the unit a fixed IP address
 
 Home Assistant reaches the unit at the IP address saved when it was added. Reserve that address for the adapter in your router (often called a DHCP reservation or static lease), so it keeps the same one after a power cut or router restart. The adapter usually shows up in the router's device list with a hostname of `AP-WF…` (AP-WF3E and similar) or `AC-UTY-` followed by its MAC address (UTY adapters, and probably other adapter families), unless it was renamed there.

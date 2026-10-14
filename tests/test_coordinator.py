@@ -2,7 +2,7 @@
 
 from collections.abc import Awaitable, Callable
 import logging
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 from aioayla_lan import device as ayla_device
 from freezegun.api import FrozenDateTimeFactory
@@ -38,7 +38,7 @@ from .const import (
     SETTINGS_SUPPORTED,
     UNIT_DATAPOINTS,
 )
-from custom_components.fglair_local.const import DOMAIN
+from custom_components.fglair_local.const import CONF_RESTART_SETTLE, DOMAIN
 from custom_components.fglair_local.coordinator import (
     COMMAND_TIMEOUT,
     FAQ_URL,
@@ -46,6 +46,7 @@ from custom_components.fglair_local.coordinator import (
     READ_BACK_DELAY,
     READ_BACK_MAX_DELAY,
     REPAIR_DELAY,
+    RESTART_SETTLE,
     UNAVAILABLE_LOG_DELAY,
     WATCHDOG_INTERVAL,
     FglairLocalDevice,
@@ -1069,6 +1070,25 @@ async def test_hung_adapter_raises_issue(
     assert issue_registry.async_get_issue(DOMAIN, ISSUE_ID) is None
 
 
+async def test_settling_adapter_raises_no_issue(
+    freezer: FrozenDateTimeFactory,
+    hass: HomeAssistant,
+    unit: SimulatedUnit,
+    device: FglairLocalDevice,
+    issue_registry: ir.IssueRegistry,
+) -> None:
+    """No hang is reported while the wait after a restart runs; after it, it is."""
+    await _connect_then_lose(hass, freezer, unit, device, {"model_name": HANGING_MODEL})
+    with patch.object(
+        type(device.lan), "settling", new_callable=PropertyMock, return_value=True
+    ):
+        await advance(hass, freezer, REPAIR_DELAY)
+        assert issue_registry.async_get_issue(DOMAIN, ISSUE_ID) is None
+
+    await advance(hass, freezer, WATCHDOG)
+    assert issue_registry.async_get_issue(DOMAIN, ISSUE_ID) is not None
+
+
 @pytest.mark.parametrize(
     "datapoints",
     [
@@ -1117,3 +1137,28 @@ async def test_hung_adapter_known_from_registry(
     assert issue is not None
     assert issue.translation_placeholders is not None
     assert issue.translation_placeholders["adapter"] == "AP-WF3E"
+
+
+@pytest.mark.parametrize(
+    ("options", "settle"),
+    [
+        pytest.param({}, 0.0, id="default"),
+        pytest.param({CONF_RESTART_SETTLE: False}, 0.0, id="off"),
+        pytest.param({CONF_RESTART_SETTLE: True}, RESTART_SETTLE, id="on"),
+    ],
+)
+@pytest.mark.usefixtures("mock_register")
+async def test_restart_settle_follows_option(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    options: dict[str, bool],
+    settle: float,
+) -> None:
+    """The adapter is left alone after a restart only when the user asks for it."""
+    mock_config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(mock_config_entry, options=options)
+    with patch("custom_components.fglair_local.PLATFORMS", []):
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert mock_config_entry.runtime_data.lan.restart_settle == settle

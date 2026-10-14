@@ -29,5 +29,6 @@ async def async_get_config_entry_diagnostics(
         "connected": device.lan.connected,
         "seconds_since_seen": _age(device.lan.last_seen),
         "seconds_pending": _age(device.lan.pending_since),
+        "restart_settle": device.lan.restart_settle,
         "values": device.values,
     }

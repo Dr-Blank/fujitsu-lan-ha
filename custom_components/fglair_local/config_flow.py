@@ -29,9 +29,11 @@ from yarl import URL
 from homeassistant.components.network import async_get_source_ip
 from homeassistant.config_entries import (
     SOURCE_RECONFIGURE,
+    ConfigEntry,
     ConfigEntryState,
     ConfigFlow,
     ConfigFlowResult,
+    OptionsFlowWithReload,
 )
 from homeassistant.const import CONF_EMAIL, CONF_HOST, CONF_PASSWORD, CONF_REGION
 from homeassistant.core import callback
@@ -39,6 +41,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
+    BooleanSelector,
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
@@ -55,6 +58,7 @@ from .const import (
     CONF_DSN,
     CONF_LANIP_KEY,
     CONF_LANIP_KEY_ID,
+    CONF_RESTART_SETTLE,
     DOMAIN,
     FGLAIR_APPS,
 )
@@ -83,6 +87,12 @@ class FglairLocalConfigFlow(ConfigFlow, domain=DOMAIN):
     """Add a unit through the FGLair cloud or with a known LAN key."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> FglairLocalOptionsFlow:
+        """Return the options flow."""
+        return FglairLocalOptionsFlow()
 
     def __init__(self) -> None:
         """Initialise."""
@@ -551,4 +561,28 @@ class FglairLocalConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_CALLBACK_HOST: self._callback_host,
                 CONF_CALLBACK_PORT: self._callback_port,
             },
+        )
+
+
+class FglairLocalOptionsFlow(OptionsFlowWithReload):
+    """How Home Assistant treats the unit's adapter."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose whether to wait after the adapter restarts."""
+        if user_input is not None:
+            return self.async_create_entry(data=user_input)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(
+                    {
+                        vol.Required(
+                            CONF_RESTART_SETTLE, default=False
+                        ): BooleanSelector()
+                    }
+                ),
+                self.config_entry.options,
+            ),
         )
