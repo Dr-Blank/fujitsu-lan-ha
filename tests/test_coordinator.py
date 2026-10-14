@@ -14,6 +14,7 @@ from homeassistant.components.climate import (
     ATTR_HVAC_MODES,
     ATTR_SWING_HORIZONTAL_MODE,
     ATTR_SWING_MODE,
+    ATTR_SWING_MODES,
 )
 from homeassistant.components.homeassistant import (
     DOMAIN as HA_DOMAIN,
@@ -26,9 +27,11 @@ from homeassistant.setup import async_setup_component
 
 from . import SimulatedUnit, advance, read_resource, written
 from .const import (
+    ANSWERED,
     CLIMATE_ENTITY_ID,
     DSN,
     ECONOMY_ENTITY_ID,
+    FIRMWARE,
     HOST,
     OUTDOOR_ENTITY_ID,
     REFRESH_ENTITY_ID,
@@ -49,7 +52,6 @@ from custom_components.fglair_local.coordinator import (
 )
 
 WATCHDOG = WATCHDOG_INTERVAL.total_seconds()
-FIRMWARE = {"model_name": "TESTMODEL01", "mcu_fw_version": "0.0.1,:,:,:,"}
 COORDINATOR_LOGGER = "custom_components.fglair_local.coordinator"
 HANGING_MODEL = "30KJTA-B : AP-WF3E"
 # Polled every minute, so they also show in a minute's commands.
@@ -815,7 +817,7 @@ async def test_session_drop_forgets_changeable_values(
 ) -> None:
     """The unit may change while unreachable; only what is fixed for it is kept."""
     await unit.key_exchange()
-    await unit.push_all({**UNIT_DATAPOINTS, **FIRMWARE})
+    await unit.push_all(ANSWERED)
 
     # What the registration loop does once the unit stops answering; driving
     # the loop itself would tie the test to its timing.
@@ -823,6 +825,8 @@ async def test_session_drop_forgets_changeable_values(
 
     assert device.values == {
         "device_capabilities": UNIT_DATAPOINTS["device_capabilities"],
+        "af_vertical_num_dir": UNIT_DATAPOINTS["af_vertical_num_dir"],
+        "af_horizontal_num_dir": UNIT_DATAPOINTS["af_horizontal_num_dir"],
         **FIRMWARE,
     }
     assert state_of(hass, CLIMATE_ENTITY_ID) == STATE_UNAVAILABLE
@@ -833,6 +837,15 @@ async def test_session_drop_forgets_changeable_values(
     assert state is not None
     assert state.state == STATE_UNKNOWN
     assert state.attributes[ATTR_CURRENT_TEMPERATURE] is None
+    # The louvre positions are kept, so the axes still offer them.
+    assert state.attributes[ATTR_SWING_MODES] == [
+        "on",
+        "off",
+        "position_1",
+        "position_2",
+        "position_3",
+        "position_4",
+    ]
     assert state.attributes[ATTR_SWING_MODE] is None
     assert state.attributes[ATTR_HVAC_MODES] == [
         "off",

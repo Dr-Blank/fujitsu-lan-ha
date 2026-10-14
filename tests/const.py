@@ -84,3 +84,6 @@ AC_INFO1 = (
 AC_INFO1_FROM_20 = AC_INFO1.replace(
     "180,300,160,300,180,300", "200,300,160,300,200,300"
 )
+FIRMWARE = {"model_name": "TESTMODEL01", "mcu_fw_version": "0.0.1,:,:,:,"}
+# Every startup read answered, so the first status poll re-reads none of them.
+ANSWERED = {**UNIT_DATAPOINTS, **FIRMWARE}

@@ -36,11 +36,13 @@ from .properties import (
     DEVICE_CAPABILITIES,
     EXTRA_PROPERTIES,
     HANGING_ADAPTERS,
+    HORIZONTAL_NUM_DIR,
     MCU_FW_VERSION,
     MODEL_NAME,
     POLLED_PROPERTIES,
     PRIME_PROPERTIES,
     READ_BACK,
+    VERTICAL_NUM_DIR,
     decode_adapter_model,
     decode_firmware_version,
     is_reported,
@@ -66,7 +68,15 @@ UNAVAILABLE_LOG_DELAY = 30.0
 REPAIR_DELAY = 600.0
 FAQ_URL = "https://github.com/Dr-Blank/fujitsu-lan-ha/blob/main/docs/faq.md"
 # Survive a lost session: fixed for the unit, and re-read only at startup.
-STATIC_PROPERTIES = frozenset({DEVICE_CAPABILITIES, MODEL_NAME, MCU_FW_VERSION})
+STATIC_PROPERTIES = frozenset(
+    {
+        DEVICE_CAPABILITIES,
+        MODEL_NAME,
+        MCU_FW_VERSION,
+        VERTICAL_NUM_DIR,
+        HORIZONTAL_NUM_DIR,
+    }
+)
 
 type FglairLocalConfigEntry = ConfigEntry[FglairLocalDevice]
 
