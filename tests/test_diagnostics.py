@@ -15,7 +15,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 
 from . import SimulatedUnit, advance, read_resource
-from .const import CALLBACK_HOST, DSN, HOST, LANIP_KEY, UNIT_DATAPOINTS
+from .const import ANSWERED, CALLBACK_HOST, DSN, HOST, LANIP_KEY, UNIT_DATAPOINTS
 from custom_components.fglair_local.coordinator import POLL_INTERVAL
 
 # Shaped like what an AP-WF3E reports while off, shortened.
@@ -92,6 +92,7 @@ async def test_diagnostics_show_polled_status(
 ) -> None:
     """Status the unit gives only when asked shows once polled and answered."""
     await unit.key_exchange()
+    await unit.push_all(ANSWERED)
     await unit.drain()
 
     await advance(hass, freezer, POLL_INTERVAL)
@@ -100,8 +101,8 @@ async def test_diagnostics_show_polled_status(
     ]
     await unit.push_all(POLLED)
 
-    assert init_integration.runtime_data.values == POLLED
+    assert init_integration.runtime_data.values == {**ANSWERED, **POLLED}
     diagnostics = await get_diagnostics_for_config_entry(
         hass, hass_client, init_integration
     )
-    assert diagnostics["values"] == POLLED
+    assert diagnostics["values"] == {**ANSWERED, **POLLED}

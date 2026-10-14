@@ -106,6 +106,7 @@ class FglairLocalDevice:
         self._read_back_deadline: float | None = None
         self._was_available = False
         self._polled_at = 0.0
+        self._prime_retried = False
         self._unavailable_since: float | None = time.monotonic()
         self._unavailable_logged = False
         self._issue_id = f"adapter_unresponsive_{self.dsn}"
@@ -156,7 +157,19 @@ class FglairLocalDevice:
     def _watchdog(self, _now: datetime | None = None) -> None:
         if self.lan.connected and time.monotonic() - self._polled_at >= POLL_INTERVAL:
             self._polled_at = time.monotonic()
-            self.lan.request_properties(POLLED_PROPERTIES)
+            names: tuple[str, ...] = POLLED_PROPERTIES
+            if not self._prime_retried:
+                # A read the unit fetched but never answered is not queued again.
+                self._prime_retried = True
+                names = (
+                    *names,
+                    *(
+                        name
+                        for name in PRIME_PROPERTIES
+                        if name not in self.values and name not in names
+                    ),
+                )
+            self.lan.request_properties(names)
         if self.available != self._was_available:
             self._notify()
         self._track_availability()
@@ -352,6 +365,7 @@ class FglairLocalDevice:
         if connected:
             # The session's first reads include them.
             self._polled_at = time.monotonic()
+            self._prime_retried = False
         else:
             self._confirmed.clear()
             # The unit may change state while unreachable; show unknown until re-read.

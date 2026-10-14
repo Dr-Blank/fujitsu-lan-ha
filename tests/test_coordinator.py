@@ -582,6 +582,7 @@ async def test_read_back_is_debounced(
 ) -> None:
     """Writes close together share one read-back, of each name once."""
     await unit.key_exchange()
+    await unit.push_all(ANSWERED)
     await unit.drain()
 
     device.set_property("min_heat", 1)
@@ -617,6 +618,7 @@ async def test_read_back_is_not_postponed_forever(
 ) -> None:
     """However often writes keep coming, the first is read back within a minute."""
     await unit.key_exchange()
+    await unit.push_all(ANSWERED)
     await unit.drain()
     interval = READ_BACK_DELAY / 2
 
@@ -691,7 +693,7 @@ async def test_unit_ignoring_poll_is_unavailable(
 ) -> None:
     """A quiet unit is still asked for something, so one that hung is noticed."""
     await unit.key_exchange()
-    await unit.push_all(UNIT_DATAPOINTS)
+    await unit.push_all(ANSWERED)
     await unit.drain()
 
     await advance(hass, freezer, POLL_INTERVAL - 1)
@@ -715,7 +717,7 @@ async def test_polled_while_unit_answers(
     Every watchdog tick runs, as it does live.
     """
     await unit.key_exchange()
-    await unit.push_all(UNIT_DATAPOINTS)
+    await unit.push_all(ANSWERED)
     await unit.drain()
 
     for room in (7900, 7950, 8000):
@@ -729,6 +731,46 @@ async def test_polled_while_unit_answers(
         state = hass.states.get(CLIMATE_ENTITY_ID)
         assert state is not None
         assert state.attributes[ATTR_CURRENT_TEMPERATURE] == (room - 5000) / 100
+
+
+async def test_unanswered_startup_reads_retried_once(
+    hass: HomeAssistant, unit: SimulatedUnit, freezer: FrozenDateTimeFactory
+) -> None:
+    """A startup read the unit fetched but never answered goes out again once.
+
+    It goes with the session's first status poll; the unit may not have the
+    property at all, so it is not asked for again in that session.
+    """
+    louvre_counts = ("af_vertical_num_dir", "af_horizontal_num_dir")
+    await unit.key_exchange()
+    await unit.push_all(
+        {name: value for name, value in ANSWERED.items() if name not in louvre_counts}
+    )
+    await unit.drain()
+    state = hass.states.get(CLIMATE_ENTITY_ID)
+    assert state is not None
+    assert state.attributes[ATTR_SWING_MODES] == ["on", "off"]
+
+    await advance(hass, freezer, POLL_INTERVAL)
+    assert [read_resource(command) for command in await unit.drain()] == reads(
+        *POLLED_READS, *louvre_counts
+    )
+    await unit.push("af_vertical_num_dir", UNIT_DATAPOINTS["af_vertical_num_dir"])
+    state = hass.states.get(CLIMATE_ENTITY_ID)
+    assert state is not None
+    assert state.attributes[ATTR_SWING_MODES] == [
+        "on",
+        "off",
+        "position_1",
+        "position_2",
+        "position_3",
+        "position_4",
+    ]
+
+    await advance(hass, freezer, POLL_INTERVAL)
+    assert [read_resource(command) for command in await unit.drain()] == reads(
+        *POLLED_READS
+    )
 
 
 @pytest.mark.parametrize(
