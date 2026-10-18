@@ -13,18 +13,5 @@ permissions:
   contents: read
 
 jobs:
-  hassfest:
-    name: Hassfest
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: home-assistant/actions/hassfest@master
-
-  hacs:
-    name: HACS
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: hacs/action@main
-        with:
-          category: integration
+  validate:
+    uses: Dr-Blank/ha-integration-ci/.github/workflows/validate.yaml@15390ee063de87b9bbf0d5cd607adf325866757e # v1.0.0

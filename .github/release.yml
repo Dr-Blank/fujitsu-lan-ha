@@ -1,5 +1,6 @@
 # Categories for the pull request section of GitHub's generated release notes.
-# Commits pushed without a pull request are listed by script/release_notes.sh.
+# Commits pushed without a pull request are listed by the ha-integration-ci
+# release workflow.
 changelog:
   exclude:
     labels:
