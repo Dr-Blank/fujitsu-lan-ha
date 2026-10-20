@@ -1,0 +1,59 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    ":automergeMinor",
+    ":automergeDigest"
+  ],
+  "timezone": "Asia/Kolkata",
+  "schedule": ["before 6am on monday"],
+  "platformAutomerge": false,
+  "rangeStrategy": "update-lockfile",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": true
+  },
+  "pre-commit": {
+    "enabled": true
+  },
+  "homeassistant-manifest": {
+    "managerFilePatterns": ["/^custom_components/[^/]+/manifest\\.json$/"]
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update ruff required-version in pyproject.toml",
+      "managerFilePatterns": ["/^pyproject\\.toml$/"],
+      "matchStrings": ["required-version = \">=(?<currentValue>[\\d.]+)\""],
+      "depNameTemplate": "ruff",
+      "datasourceTemplate": "pypi"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "pytest-homeassistant-custom-component pins an exact homeassistant release",
+      "matchPackageNames": [
+        "homeassistant",
+        "pytest-homeassistant-custom-component"
+      ],
+      "groupName": "Home Assistant"
+    },
+    {
+      "description": "Keep the ruff pin, pre-commit hook and required-version in step",
+      "matchPackageNames": ["ruff", "astral-sh/ruff-pre-commit"],
+      "groupName": "ruff"
+    },
+    {
+      "description": "manifest.json and pyproject.toml pin the same requirements, and a bump needs an integration release",
+      "matchManagers": ["homeassistant-manifest"],
+      "groupName": "integration requirements",
+      "automerge": false
+    },
+    {
+      "matchDepTypes": ["project.dependencies"],
+      "groupName": "integration requirements",
+      "automerge": false
+    }
+  ]
+}
