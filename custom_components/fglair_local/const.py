@@ -8,6 +8,10 @@ CONF_LANIP_KEY_ID = "lanip_key_id"
 CONF_CALLBACK_HOST = "callback_host"
 CONF_CALLBACK_PORT = "callback_port"
 CONF_RESTART_SETTLE = "restart_settle"
+CONF_RESTART_SETTLE_TIME = "restart_settle_time"
+
+# How long the adapter is left alone after it restarts, when the option is on.
+DEFAULT_RESTART_SETTLE_TIME = 600
 
 # Public FGLair mobile-app credentials: they identify the app, not the user.
 FGLAIR_APPS: dict[str, tuple[str, str]] = {

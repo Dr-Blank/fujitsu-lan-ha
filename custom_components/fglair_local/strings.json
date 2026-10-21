@@ -408,10 +408,12 @@
       "init": {
         "title": "Adapter",
         "data": {
-          "restart_settle": "Wait after the adapter restarts"
+          "restart_settle": "Wait after the adapter restarts",
+          "restart_settle_time": "Wait time"
         },
         "data_description": {
-          "restart_settle": "After the adapter goes away for more than about 30 seconds, wait 10 minutes once it answers again before connecting. Turn on only if the unit gets stuck after its adapter restarts (see the FAQ); a Wi-Fi dropout gets the same wait."
+          "restart_settle": "After the adapter goes away for more than about 30 seconds, wait once it answers again before connecting. Turn on only if the unit gets stuck after its adapter restarts (see the FAQ); a Wi-Fi dropout gets the same wait.",
+          "restart_settle_time": "How long to wait before connecting, when the wait is on. The unit is unavailable meanwhile. Too short and the unit can get stuck again."
         }
       }
     }

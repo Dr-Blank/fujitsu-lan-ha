@@ -86,7 +86,7 @@ The unit is checked with the new settings before they are saved.
 
 ### Options
 
-The entry's **Configure** button has one setting, **Wait after the adapter restarts**, off by default. Turn it on only if the unit gets stuck after its adapter restarts; see the [FAQ](docs/faq.md#the-unit-gets-stuck-after-its-adapter-restarts).
+The entry's **Configure** button has one setting, **Wait after the adapter restarts**, off by default, with its **Wait time** (600 seconds by default). Turn it on only if the unit gets stuck after its adapter restarts; see the [FAQ](docs/faq.md#the-unit-gets-stuck-after-its-adapter-restarts).
 
 ### Callback address
 

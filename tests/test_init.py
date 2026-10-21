@@ -15,8 +15,13 @@ from homeassistant.setup import async_setup_component
 
 from . import SimulatedUnit
 from .const import ECONOMY_ENTITY_ID, ENTRY_DATA, SETTINGS_SUPPORTED
-from custom_components.fglair_local.const import CONF_DSN, CONF_RESTART_SETTLE, DOMAIN
-from custom_components.fglair_local.coordinator import RESTART_SETTLE
+from custom_components.fglair_local.const import (
+    CONF_DSN,
+    CONF_RESTART_SETTLE,
+    CONF_RESTART_SETTLE_TIME,
+    DEFAULT_RESTART_SETTLE_TIME,
+    DOMAIN,
+)
 from custom_components.fglair_local.views import AylaLanView
 
 
@@ -144,8 +149,24 @@ async def test_unload_stops_registering(
     assert resp.status == 403
 
 
+@pytest.mark.parametrize(
+    ("user_input", "settle_time"),
+    [
+        pytest.param(
+            {CONF_RESTART_SETTLE: True}, DEFAULT_RESTART_SETTLE_TIME, id="default_time"
+        ),
+        pytest.param(
+            {CONF_RESTART_SETTLE: True, CONF_RESTART_SETTLE_TIME: 180},
+            180,
+            id="custom_time",
+        ),
+    ],
+)
 async def test_options_restart_settle(
-    hass: HomeAssistant, init_integration: MockConfigEntry
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+    user_input: dict[str, bool | int],
+    settle_time: int,
 ) -> None:
     """Turning the wait on reloads the entry with it applied."""
     result = await hass.config_entries.options.async_init(init_integration.entry_id)
@@ -153,11 +174,14 @@ async def test_options_restart_settle(
     assert result["step_id"] == "init"
 
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {CONF_RESTART_SETTLE: True}
+        result["flow_id"], user_input
     )
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert init_integration.options == {CONF_RESTART_SETTLE: True}
+    assert init_integration.options == {
+        CONF_RESTART_SETTLE: True,
+        CONF_RESTART_SETTLE_TIME: settle_time,
+    }
     assert init_integration.state is ConfigEntryState.LOADED
-    assert init_integration.runtime_data.lan.restart_settle == RESTART_SETTLE
+    assert init_integration.runtime_data.lan.restart_settle == settle_time

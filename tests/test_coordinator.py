@@ -38,7 +38,12 @@ from .const import (
     SETTINGS_SUPPORTED,
     UNIT_DATAPOINTS,
 )
-from custom_components.fglair_local.const import CONF_RESTART_SETTLE, DOMAIN
+from custom_components.fglair_local.const import (
+    CONF_RESTART_SETTLE,
+    CONF_RESTART_SETTLE_TIME,
+    DEFAULT_RESTART_SETTLE_TIME,
+    DOMAIN,
+)
 from custom_components.fglair_local.coordinator import (
     COMMAND_TIMEOUT,
     FAQ_URL,
@@ -46,7 +51,6 @@ from custom_components.fglair_local.coordinator import (
     READ_BACK_DELAY,
     READ_BACK_MAX_DELAY,
     REPAIR_DELAY,
-    RESTART_SETTLE,
     UNAVAILABLE_LOG_DELAY,
     WATCHDOG_INTERVAL,
     FglairLocalDevice,
@@ -1144,14 +1148,24 @@ async def test_hung_adapter_known_from_registry(
     [
         pytest.param({}, 0.0, id="default"),
         pytest.param({CONF_RESTART_SETTLE: False}, 0.0, id="off"),
-        pytest.param({CONF_RESTART_SETTLE: True}, RESTART_SETTLE, id="on"),
+        pytest.param({CONF_RESTART_SETTLE: True}, DEFAULT_RESTART_SETTLE_TIME, id="on"),
+        pytest.param(
+            {CONF_RESTART_SETTLE: True, CONF_RESTART_SETTLE_TIME: 180},
+            180.0,
+            id="on_custom_time",
+        ),
+        pytest.param(
+            {CONF_RESTART_SETTLE: False, CONF_RESTART_SETTLE_TIME: 180},
+            0.0,
+            id="off_custom_time",
+        ),
     ],
 )
 @pytest.mark.usefixtures("mock_register")
 async def test_restart_settle_follows_option(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
-    options: dict[str, bool],
+    options: dict[str, bool | int],
     settle: float,
 ) -> None:
     """The adapter is left alone after a restart only when the user asks for it."""

@@ -42,6 +42,9 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     BooleanSelector,
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
@@ -59,6 +62,8 @@ from .const import (
     CONF_LANIP_KEY,
     CONF_LANIP_KEY_ID,
     CONF_RESTART_SETTLE,
+    CONF_RESTART_SETTLE_TIME,
+    DEFAULT_RESTART_SETTLE_TIME,
     DOMAIN,
     FGLAIR_APPS,
 )
@@ -570,7 +575,7 @@ class FglairLocalOptionsFlow(OptionsFlowWithReload):
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Choose whether to wait after the adapter restarts."""
+        """Choose whether, and how long, to wait after the adapter restarts."""
         if user_input is not None:
             return self.async_create_entry(data=user_input)
         return self.async_show_form(
@@ -580,7 +585,19 @@ class FglairLocalOptionsFlow(OptionsFlowWithReload):
                     {
                         vol.Required(
                             CONF_RESTART_SETTLE, default=False
-                        ): BooleanSelector()
+                        ): BooleanSelector(),
+                        vol.Required(
+                            CONF_RESTART_SETTLE_TIME,
+                            default=DEFAULT_RESTART_SETTLE_TIME,
+                        ): NumberSelector(
+                            NumberSelectorConfig(
+                                min=30,
+                                max=1800,
+                                step=10,
+                                unit_of_measurement="s",
+                                mode=NumberSelectorMode.BOX,
+                            )
+                        ),
                     }
                 ),
                 self.config_entry.options,

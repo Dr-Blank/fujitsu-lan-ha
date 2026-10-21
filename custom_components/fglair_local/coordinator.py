@@ -30,6 +30,8 @@ from .const import (
     CONF_LANIP_KEY,
     CONF_LANIP_KEY_ID,
     CONF_RESTART_SETTLE,
+    CONF_RESTART_SETTLE_TIME,
+    DEFAULT_RESTART_SETTLE_TIME,
     DOMAIN,
 )
 from .properties import (
@@ -68,8 +70,6 @@ UNAVAILABLE_LOG_DELAY = 30.0
 # A hung adapter does not recover by itself, so say how to revive it.
 REPAIR_DELAY = 600.0
 FAQ_URL = "https://github.com/Dr-Blank/fujitsu-lan-ha/blob/main/docs/faq.md"
-# How long the adapter is left alone after it restarts, when the option is on.
-RESTART_SETTLE = 600.0
 # Survive a lost session: fixed for the unit, and re-read only at startup.
 STATIC_PROPERTIES = frozenset(
     {
@@ -125,7 +125,13 @@ class FglairLocalDevice:
             on_connection_change=self._on_connection_change,
             prime_properties=(*PRIME_PROPERTIES, *EXTRA_PROPERTIES),
             restart_settle=(
-                RESTART_SETTLE if entry.options.get(CONF_RESTART_SETTLE) else 0.0
+                float(
+                    entry.options.get(
+                        CONF_RESTART_SETTLE_TIME, DEFAULT_RESTART_SETTLE_TIME
+                    )
+                )
+                if entry.options.get(CONF_RESTART_SETTLE)
+                else 0.0
             ),
         )
         server.add_device(self.lan)
