@@ -1,6 +1,6 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
 _commit: v1.1.0
-_src_path: gh:Dr-Blank/ha-integration-ci
+_src_path: https://github.com/Dr-Blank/ha-integration-ci
 description: Home Assistant integration for local control of Fujitsu FGLair air conditioners
 display_name: Fujitsu FGLair Local
 domain: fglair_local
