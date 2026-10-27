@@ -53,13 +53,19 @@ class SimulatedUnit:
         return self._crypto
 
     async def _post_datapoint(
-        self, path: str, data: dict[str, Any], method: str = "POST"
+        self,
+        path: str,
+        data: dict[str, Any],
+        method: str = "POST",
+        params: dict[str, int] | None = None,
     ) -> int:
         doc = self._require_session().encrypt_and_sign(
             {"seq_no": self._seq_no, "data": data}
         )
         self._seq_no += 1
-        resp = await self.client.request(method, f"{LAN_URI}/{path}", json=doc)
+        resp = await self.client.request(
+            method, f"{LAN_URI}/{path}", json=doc, params=params
+        )
         return resp.status
 
     async def push(self, name: str, value: Any, method: str = "POST") -> int:
@@ -81,6 +87,16 @@ class SimulatedUnit:
             },
         )
 
+    async def answer(self, command: dict[str, Any], status: int = 200) -> int:
+        """Answer a collected read without a value. Returns the HTTP status.
+
+        Values the tests want arrive through `push`.
+        """
+        cmd_id = command["data"]["cmds"][0]["cmd"]["cmd_id"]
+        return await self._post_datapoint(
+            "property/datapoint.json", {}, params={"cmd_id": cmd_id, "status": status}
+        )
+
     async def fetch_command(self) -> dict[str, Any]:
         """Collect and decrypt the next queued command."""
         resp = await self.client.get(f"{LAN_URI}/commands.json")
@@ -94,9 +110,11 @@ class SimulatedUnit:
         return command
 
     async def drain(self) -> list[dict[str, Any]]:
-        """Collect every queued command, as a responsive unit does."""
+        """Collect every queued command and answer each read, as a responsive unit does."""
         commands = []
         while (command := await self.fetch_command())["data"]:
+            if "cmds" in command["data"]:
+                assert await self.answer(command) in ACCEPTED
             commands.append(command)
         return commands
 

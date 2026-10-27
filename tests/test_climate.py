@@ -192,7 +192,7 @@ async def test_services_queue_writes(hass: HomeAssistant, unit: SimulatedUnit) -
     assert state.attributes[ATTR_SWING_HORIZONTAL_MODE] == "on"
 
     writes = [await unit.fetch_write() for _ in range(6)]
-    commands = [*writes, *[await unit.fetch_command() for _ in PRIMED]]
+    commands = [*writes, *await unit.drain()]
     assert [command["seq_no"] for command in commands] == list(range(len(commands)))
     assert [written(command) for command in writes] == [
         ("adjust_temperature", 250, "integer"),

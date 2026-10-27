@@ -41,9 +41,7 @@ async def test_refresh_press_queues_reads(
 ) -> None:
     """Re-reading asks the unit for every known property again."""
     await unit.key_exchange()
-    for _ in PRIMED:
-        await unit.fetch_command()
-    assert (await unit.fetch_command())["data"] == {}
+    assert len(await unit.drain()) == len(PRIMED)
 
     await hass.services.async_call(
         BUTTON_DOMAIN,
@@ -52,7 +50,6 @@ async def test_refresh_press_queues_reads(
         blocking=True,
     )
 
-    assert [read_resource(await unit.fetch_command()) for _ in PRIMED] == [
+    assert [read_resource(command) for command in await unit.drain()] == [
         f"property.json?name={name}" for name in PRIMED
     ]
-    assert (await unit.fetch_command())["data"] == {}

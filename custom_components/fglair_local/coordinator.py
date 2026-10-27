@@ -171,7 +171,7 @@ class FglairLocalDevice:
             self._polled_at = time.monotonic()
             names: tuple[str, ...] = POLLED_PROPERTIES
             if not self._prime_retried:
-                # A read the unit fetched but never answered is not queued again.
+                # A read answered with an error, or never answered, is dropped.
                 self._prime_retried = True
                 names = (
                     *names,
