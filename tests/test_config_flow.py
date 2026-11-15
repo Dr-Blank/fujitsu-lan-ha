@@ -54,6 +54,7 @@ from .const import (
     HOST,
     LANIP_KEY,
     LANIP_KEY_ID,
+    MAC,
     PRODUCT_NAME,
 )
 from custom_components.fglair_local.const import (
@@ -84,7 +85,6 @@ LOCAL_INPUT = {CONF_HOST: LOCAL_HOST, CONF_LANIP_KEY: LANIP_KEY}
 DISCOVERY = DhcpServiceInfo(
     ip=DISCOVERED_HOST, hostname="ap-wf0000000001", macaddress="00005e005301"
 )
-MAC = "00:00:5e:00:53:01"
 OTHER_MAC = "00:00:5e:00:53:02"
 
 pytestmark = pytest.mark.usefixtures("mock_setup_entry")
@@ -1122,13 +1122,27 @@ async def test_dhcp_already_configured(
     assert mock_config_entry.data[CONF_MAC] == MAC
 
 
+@pytest.mark.parametrize(
+    "stored_mac",
+    [
+        pytest.param(MAC, id="same_mac"),
+        pytest.param(OTHER_MAC, id="other_device"),
+    ],
+)
 async def test_dhcp_known_address(
-    hass: HomeAssistant, mock_config_entry: MockConfigEntry, mock_fetch_dsn: AsyncMock
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_fetch_dsn: AsyncMock,
+    stored_mac: str,
 ) -> None:
-    """A configured unit seen at its known address is not probed again."""
+    """A unit with a MAC seen at its known address is not probed, and keeps its MAC.
+
+    Another MAC there belongs to whatever took the address.
+    """
     mock_config_entry.add_to_hass(hass)
     hass.config_entries.async_update_entry(
-        mock_config_entry, data={**ENTRY_DATA, CONF_HOST: DISCOVERED_HOST}
+        mock_config_entry,
+        data={**ENTRY_DATA, CONF_HOST: DISCOVERED_HOST, CONF_MAC: stored_mac},
     )
 
     result = await hass.config_entries.flow.async_init(
@@ -1137,12 +1151,14 @@ async def test_dhcp_known_address(
 
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
+    assert mock_config_entry.data[CONF_MAC] == stored_mac
     mock_fetch_dsn.assert_not_awaited()
 
 
 async def test_dhcp_known_address_adds_mac(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
+    mock_fetch_dsn: AsyncMock,
     device_registry: dr.DeviceRegistry,
 ) -> None:
     """A unit added without discovery gets its MAC when DHCP sees it, without a reload."""
@@ -1164,17 +1180,34 @@ async def test_dhcp_known_address_adds_mac(
     device = device_registry.async_get(device.id)
     assert device is not None
     assert device.connections == {(dr.CONNECTION_NETWORK_MAC, MAC)}
+    mock_fetch_dsn.assert_awaited_once_with(
+        async_get_clientsession(hass), DISCOVERED_HOST
+    )
 
 
-async def test_dhcp_known_address_keeps_mac(
-    hass: HomeAssistant, mock_config_entry: MockConfigEntry
+@pytest.mark.parametrize(
+    "probe",
+    [
+        pytest.param({"return_value": OTHER_DSN}, id="another_unit"),
+        pytest.param({"side_effect": CannotConnectError}, id="no_answer"),
+    ],
+)
+async def test_dhcp_known_address_not_this_unit(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_fetch_dsn: AsyncMock,
+    device_registry: dr.DeviceRegistry,
+    probe: dict[str, Any],
 ) -> None:
-    """Another MAC at a unit's known address belongs to whatever took the address."""
+    """A MAC at a unit's known address is only recorded once the unit there is proven."""
     mock_config_entry.add_to_hass(hass)
     hass.config_entries.async_update_entry(
-        mock_config_entry,
-        data={**ENTRY_DATA, CONF_HOST: DISCOVERED_HOST, CONF_MAC: OTHER_MAC},
+        mock_config_entry, data={**ENTRY_DATA, CONF_HOST: DISCOVERED_HOST}
     )
+    device = device_registry.async_get_or_create(
+        config_entry_id=mock_config_entry.entry_id, identifiers={(DOMAIN, DSN)}
+    )
+    mock_fetch_dsn.configure_mock(**probe)
 
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": SOURCE_DHCP}, data=DISCOVERY
@@ -1182,7 +1215,10 @@ async def test_dhcp_known_address_keeps_mac(
 
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
-    assert mock_config_entry.data[CONF_MAC] == OTHER_MAC
+    assert CONF_MAC not in mock_config_entry.data
+    device = device_registry.async_get(device.id)
+    assert device is not None
+    assert device.connections == set()
 
 
 async def test_dhcp_cannot_connect(

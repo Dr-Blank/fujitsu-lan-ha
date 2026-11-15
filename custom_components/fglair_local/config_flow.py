@@ -135,7 +135,9 @@ class FglairLocalConfigFlow(ConfigFlow, domain=DOMAIN):
         mac = dr.format_mac(discovery_info.macaddress)
         for entry in self._async_current_entries(include_ignore=False):
             if entry.data[CONF_HOST] == discovery_info.ip:
-                self._async_add_mac(entry, mac)
+                # A different MAC there is another device that took the address.
+                if CONF_MAC not in entry.data:
+                    await self._async_add_mac(entry, mac)
                 return self.async_abort(reason="already_configured")
         try:
             dsn = await fetch_dsn(async_get_clientsession(self.hass), discovery_info.ip)
@@ -151,24 +153,27 @@ class FglairLocalConfigFlow(ConfigFlow, domain=DOMAIN):
         self.context["title_placeholders"] = {"name": dsn}
         return await self.async_step_discovery_confirm()
 
-    @callback
-    def _async_add_mac(self, entry: ConfigEntry, mac: str) -> None:
+    async def _async_add_mac(self, entry: ConfigEntry, mac: str) -> None:
         """Record the MAC of a unit seen at its known address, without a reload.
 
-        A different MAC there is another device that took the address.
+        The address may have gone to another unit since, so the DSN is checked.
         """
-        if CONF_MAC in entry.data:
+        try:
+            dsn = await fetch_dsn(
+                async_get_clientsession(self.hass), entry.data[CONF_HOST]
+            )
+        except AylaLanError:
+            return
+        if dsn != entry.data[CONF_DSN]:
             return
         self.hass.config_entries.async_update_entry(
             entry, data={**entry.data, CONF_MAC: mac}
         )
-        device_registry = dr.async_get(self.hass)
-        if device := device_registry.async_get_device_by_identifier(
-            (DOMAIN, entry.data[CONF_DSN]), entry.entry_id
-        ):
-            device_registry.async_update_device(
-                device.id, merge_connections={(dr.CONNECTION_NETWORK_MAC, mac)}
-            )
+        dr.async_get(self.hass).async_get_or_create(
+            config_entry_id=entry.entry_id,
+            identifiers={(DOMAIN, dsn)},
+            connections={(dr.CONNECTION_NETWORK_MAC, mac)},
+        )
 
     async def async_step_discovery_confirm(
         self, user_input: dict[str, Any] | None = None

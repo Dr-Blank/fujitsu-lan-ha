@@ -19,6 +19,7 @@ from .const import (
     DSN,
     ECONOMY_ENTITY_ID,
     ENTRY_DATA,
+    MAC,
     REFRESH_ENTITY_ID,
     SETTINGS_SUPPORTED,
     UNIT_DATAPOINTS,
@@ -164,8 +165,8 @@ async def test_device_name(
     ("data", "connections"),
     [
         pytest.param(
-            {**ENTRY_DATA, CONF_MAC: "00:00:5e:00:53:01"},
-            {(dr.CONNECTION_NETWORK_MAC, "00:00:5e:00:53:01")},
+            {**ENTRY_DATA, CONF_MAC: MAC},
+            {(dr.CONNECTION_NETWORK_MAC, MAC)},
             id="discovered",
         ),
         pytest.param(ENTRY_DATA, set(), id="not_discovered"),

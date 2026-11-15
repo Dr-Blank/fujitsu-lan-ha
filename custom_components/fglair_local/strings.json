@@ -212,9 +212,6 @@
       "error_code": {
         "name": "Error code"
       },
-      "ip_address": {
-        "name": "IP address"
-      },
       "error_message": {
         "name": "Error message",
         "state": {
@@ -365,6 +362,9 @@
           "ion_generator": "Ion generator fault",
           "other": "Other error"
         }
+      },
+      "ip_address": {
+        "name": "IP address"
       },
       "outdoor_temperature": {
         "name": "Outdoor temperature"

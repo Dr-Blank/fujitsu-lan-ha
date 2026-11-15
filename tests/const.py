@@ -18,6 +18,8 @@ LANIP_KEY_ID = 1234
 HOST = "127.0.0.1"
 CALLBACK_HOST = "192.0.2.2"
 CALLBACK_PORT = 8123
+# Wi-Fi adapter MAC, as DHCP discovery reports it once formatted.
+MAC = "00:00:5e:00:53:01"
 # Where the cloud says the unit is, for config flow tests.
 CLOUD_HOST = "192.0.2.10"
 PRODUCT_NAME = "Living room"
