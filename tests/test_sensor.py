@@ -9,11 +9,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from . import SimulatedUnit
-from .const import ERROR_CODE_ENTITY_ID, OUTDOOR_ENTITY_ID
+from .const import ERROR_CODE_ENTITY_ID, HOST, OUTDOOR_ENTITY_ID
 
 ERROR_ENTITY_ID = "sensor.air_conditioner_error_message"
 
 RAW_ENTITY_ID = "sensor.air_conditioner_raw_mystery_value"
+
+IP_ADDRESS_ENTITY_ID = "sensor.air_conditioner_ip_address"
 
 
 @pytest.mark.parametrize("method", ["POST", "PUT"])
@@ -207,3 +209,21 @@ async def test_raw_sensor_unknown_after_session_drop(
     state = hass.states.get(RAW_ENTITY_ID)
     assert state is not None
     assert state.state == STATE_UNKNOWN
+
+
+@pytest.mark.usefixtures("init_integration")
+async def test_ip_address_disabled_by_default(
+    hass: HomeAssistant, entity_registry: er.EntityRegistry
+) -> None:
+    """The unit's address is a diagnostic most users never look at."""
+    entry = entity_registry.async_get(IP_ADDRESS_ENTITY_ID)
+    assert entry is not None
+    assert entry.disabled_by is er.RegistryEntryDisabler.INTEGRATION
+
+
+@pytest.mark.usefixtures("entity_registry_enabled_by_default", "init_integration")
+async def test_ip_address_before_key_exchange(hass: HomeAssistant) -> None:
+    """The address comes from the entry, so it is known while the unit is offline."""
+    state = hass.states.get(IP_ADDRESS_ENTITY_ID)
+    assert state is not None
+    assert state.state == HOST

@@ -4,7 +4,7 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from homeassistant.core import callback
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -24,6 +24,9 @@ class FglairLocalEntity(Entity):
         self.device = device
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device.dsn)},
+            connections=(
+                {(CONNECTION_NETWORK_MAC, device.mac)} if device.mac else set()
+            ),
             manufacturer="Fujitsu General",
             name=device.name,
             serial_number=device.dsn,

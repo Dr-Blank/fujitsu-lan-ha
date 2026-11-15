@@ -88,6 +88,7 @@ async def async_setup_entry(
         ],
         ready=is_numeric,
     )
+    async_add_entities([FglairLocalHostSensor(device)])
     added: set[str] = set()
 
     @callback
@@ -150,3 +151,25 @@ class FglairLocalRawSensor(FglairLocalEntity, SensorEntity):
         if (value := self.device.values.get(self._prop)) is None:
             return None
         return str(value)[:MAX_STATE_LENGTH]
+
+
+class FglairLocalHostSensor(FglairLocalEntity, SensorEntity):
+    """Address Home Assistant reaches the unit at."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+    _attr_translation_key = "ip_address"
+
+    def __init__(self, device: FglairLocalDevice) -> None:
+        """Initialise."""
+        super().__init__(device)
+        self._attr_unique_id = f"{device.dsn}_ip_address"
+        self._attr_native_value = device.host
+
+    @property
+    def available(self) -> bool:
+        """Known from the entry, so also while the unit is offline."""
+        return True
+
+    async def async_added_to_hass(self) -> None:
+        """Skip the pushed updates; the address only changes with a reload."""

@@ -212,6 +212,9 @@
       "error_code": {
         "name": "Error code"
       },
+      "ip_address": {
+        "name": "IP address"
+      },
       "error_message": {
         "name": "Error message",
         "state": {
