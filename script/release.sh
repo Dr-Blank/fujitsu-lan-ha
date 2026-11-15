@@ -3,14 +3,18 @@
 # it is tracked), commit it as chore(release), and create the matching
 # annotated git tag. Nothing is pushed.
 #
-# Usage: release.sh <major|minor|patch|X.Y.Z>
+# Usage: release.sh <auto|major|minor|patch|X.Y.Z>
+#
+# auto picks the bump from the Conventional Commits since the last tag: a
+# breaking change is major (minor before 1.0.0), a feat is minor, anything
+# else is patch.
 #
 # Home Assistant reads the version from custom_components/fglair_local/manifest.json
 # and HACS offers an update when a new tag is released, so the files have to
 # agree with the tag. The Release workflow refuses a tag that does not.
 set -euo pipefail
 
-usage="usage: release.sh <major|minor|patch|X.Y.Z>"
+usage="usage: release.sh <auto|major|minor|patch|X.Y.Z>"
 bump="${1:?$usage}"
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -34,6 +38,38 @@ behind="$(git rev-list --count HEAD..origin/main)"
 if [ "$behind" -gt 0 ]; then
   echo "main is ${behind} commit(s) behind origin/main, pull first" >&2
   exit 1
+fi
+
+if [ "$bump" = auto ]; then
+  if ! last="$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null)"; then
+    echo "no previous release tag, pass the version explicitly" >&2
+    exit 1
+  fi
+  range="${last}..HEAD"
+  if [ -z "$(git rev-list "$range")" ]; then
+    echo "no commits since ${last}, nothing to release" >&2
+    exit 1
+  fi
+  # git log --grep matches per line, so a footer is found anywhere in the body.
+  breaking="$(git log -E --format='  %h %s' --grep='^[[:alnum:]]+(\([^)]*\))?!:' --grep='^BREAKING[ -]CHANGE:' "$range")"
+  features="$(git log -E --format='  %h %s' --grep='^feat(\([^)]*\))?:' "$range")"
+  if [ -n "$breaking" ]; then
+    current="$(uv version --short)"
+    if [ "${current%%.*}" = 0 ]; then
+      bump=minor
+    else
+      bump=major
+    fi
+    echo "auto: ${bump}, breaking changes since ${last}:"
+    echo "$breaking"
+  elif [ -n "$features" ]; then
+    bump=minor
+    echo "auto: minor, features since ${last}:"
+    echo "$features"
+  else
+    bump=patch
+    echo "auto: patch, no features or breaking changes since ${last}"
+  fi
 fi
 
 files=(pyproject.toml "$manifest")

@@ -4,13 +4,14 @@
     {
       "id": "bumpType",
       "type": "pickString",
-      "description": "Version part to bump",
+      "description": "Version part to bump, auto picks it from the commits since the last tag",
       "options": [
+        "auto",
         "patch",
         "minor",
         "major"
       ],
-      "default": "patch"
+      "default": "auto"
     }
   ],
   "tasks": [
