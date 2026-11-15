@@ -22,6 +22,20 @@ if [ -n "$(git status --porcelain)" ]; then
   exit 1
 fi
 
+branch="$(git symbolic-ref --quiet --short HEAD || true)"
+if [ "$branch" != main ]; then
+  echo "releases are cut from main, currently on ${branch:-a detached HEAD}" >&2
+  exit 1
+fi
+
+# Unpushed local commits are fine, they go out with the tag.
+git fetch --quiet --tags origin main
+behind="$(git rev-list --count HEAD..origin/main)"
+if [ "$behind" -gt 0 ]; then
+  echo "main is ${behind} commit(s) behind origin/main, pull first" >&2
+  exit 1
+fi
+
 files=(pyproject.toml "$manifest")
 uv_args=()
 if git ls-files --error-unmatch uv.lock >/dev/null 2>&1; then
