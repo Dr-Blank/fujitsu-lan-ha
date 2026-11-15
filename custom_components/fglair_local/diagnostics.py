@@ -4,14 +4,14 @@ import time
 from typing import Any
 
 from homeassistant.components.diagnostics import async_redact_data
-from homeassistant.const import CONF_HOST
+from homeassistant.const import CONF_HOST, CONF_MAC
 from homeassistant.core import HomeAssistant
 
 from .const import CONF_CALLBACK_HOST, CONF_DSN, CONF_LANIP_KEY
 from .coordinator import FglairLocalConfigEntry
 
 # The LAN key grants full local control of the unit.
-TO_REDACT = {CONF_LANIP_KEY, CONF_DSN, CONF_HOST, CONF_CALLBACK_HOST}
+TO_REDACT = {CONF_LANIP_KEY, CONF_DSN, CONF_HOST, CONF_CALLBACK_HOST, CONF_MAC}
 
 
 def _age(since: float | None) -> float | None:

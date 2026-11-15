@@ -30,6 +30,9 @@
     },
     {
       "hostname": "ac-uty-*"
+    },
+    {
+      "registered_devices": true
     }
   ],
   "documentation": "https://github.com/Dr-Blank/fujitsu-lan-ha",

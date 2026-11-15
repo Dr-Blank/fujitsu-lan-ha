@@ -35,10 +35,16 @@ from homeassistant.config_entries import (
     ConfigFlowResult,
     OptionsFlowWithReload,
 )
-from homeassistant.const import CONF_EMAIL, CONF_HOST, CONF_PASSWORD, CONF_REGION
+from homeassistant.const import (
+    CONF_EMAIL,
+    CONF_HOST,
+    CONF_MAC,
+    CONF_PASSWORD,
+    CONF_REGION,
+)
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     BooleanSelector,
@@ -103,6 +109,7 @@ class FglairLocalConfigFlow(ConfigFlow, domain=DOMAIN):
         """Initialise."""
         self._host: str | None = None
         self._dsn: str | None = None
+        self._mac: str | None = None
         self._lan_key: str | None = None
         self._title: str | None = None
         self._callback_host: str | None = None
@@ -125,17 +132,48 @@ class FglairLocalConfigFlow(ConfigFlow, domain=DOMAIN):
         self, discovery_info: DhcpServiceInfo
     ) -> ConfigFlowResult:
         """Identify a unit seen on the network by its DSN."""
-        self._async_abort_entries_match({CONF_HOST: discovery_info.ip})
+        mac = dr.format_mac(discovery_info.macaddress)
+        for entry in self._async_current_entries(include_ignore=False):
+            if entry.data[CONF_HOST] == discovery_info.ip:
+                # A different MAC there is another device that took the address.
+                if CONF_MAC not in entry.data:
+                    await self._async_add_mac(entry, mac)
+                return self.async_abort(reason="already_configured")
         try:
             dsn = await fetch_dsn(async_get_clientsession(self.hass), discovery_info.ip)
         except AylaLanError:
             return self.async_abort(reason="cannot_connect")
         await self.async_set_unique_id(dsn)
-        self._abort_if_unique_id_configured(updates={CONF_HOST: discovery_info.ip})
+        self._abort_if_unique_id_configured(
+            updates={CONF_HOST: discovery_info.ip, CONF_MAC: mac}
+        )
         self._host = discovery_info.ip
         self._dsn = dsn
+        self._mac = mac
         self.context["title_placeholders"] = {"name": dsn}
         return await self.async_step_discovery_confirm()
+
+    async def _async_add_mac(self, entry: ConfigEntry, mac: str) -> None:
+        """Record the MAC of a unit seen at its known address, without a reload.
+
+        The address may have gone to another unit since, so the DSN is checked.
+        """
+        try:
+            dsn = await fetch_dsn(
+                async_get_clientsession(self.hass), entry.data[CONF_HOST]
+            )
+        except AylaLanError:
+            return
+        if dsn != entry.data[CONF_DSN]:
+            return
+        self.hass.config_entries.async_update_entry(
+            entry, data={**entry.data, CONF_MAC: mac}
+        )
+        dr.async_get(self.hass).async_get_or_create(
+            config_entry_id=entry.entry_id,
+            identifiers={(DOMAIN, dsn)},
+            connections={(dr.CONNECTION_NETWORK_MAC, mac)},
+        )
 
     async def async_step_discovery_confirm(
         self, user_input: dict[str, Any] | None = None
@@ -292,6 +330,9 @@ class FglairLocalConfigFlow(ConfigFlow, domain=DOMAIN):
                 else:
                     await self.async_set_unique_id(dsn)
                     self._abort_if_unique_id_configured()
+                    if dsn != self._dsn:
+                        # The discovered MAC is another unit's.
+                        self._mac = None
                     self._host = host
                     self._dsn = dsn
                     self._lan_key = lan_key
@@ -556,17 +597,17 @@ class FglairLocalConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_CALLBACK_PORT: self._callback_port,
                 },
             )
-        return self.async_create_entry(
-            title=self._title or self._dsn,
-            data={
-                CONF_HOST: self._host,
-                CONF_DSN: self._dsn,
-                CONF_LANIP_KEY: self._lan_key,
-                CONF_LANIP_KEY_ID: self._key_id,
-                CONF_CALLBACK_HOST: self._callback_host,
-                CONF_CALLBACK_PORT: self._callback_port,
-            },
-        )
+        data = {
+            CONF_HOST: self._host,
+            CONF_DSN: self._dsn,
+            CONF_LANIP_KEY: self._lan_key,
+            CONF_LANIP_KEY_ID: self._key_id,
+            CONF_CALLBACK_HOST: self._callback_host,
+            CONF_CALLBACK_PORT: self._callback_port,
+        }
+        if self._mac is not None:
+            data[CONF_MAC] = self._mac
+        return self.async_create_entry(title=self._title or self._dsn, data=data)
 
 
 class FglairLocalOptionsFlow(OptionsFlowWithReload):

@@ -363,6 +363,9 @@
           "other": "Other error"
         }
       },
+      "ip_address": {
+        "name": "IP address"
+      },
       "outdoor_temperature": {
         "name": "Outdoor temperature"
       }

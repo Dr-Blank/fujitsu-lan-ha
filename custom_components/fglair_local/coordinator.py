@@ -16,7 +16,7 @@ from aioayla_lan import (
 )
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST
+from homeassistant.const import CONF_HOST, CONF_MAC
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -97,6 +97,8 @@ class FglairLocalDevice:
         self._hass = hass
         self._entry = entry
         self.dsn: str = entry.data[CONF_DSN]
+        self.host: str = entry.data[CONF_HOST]
+        self.mac: str | None = entry.data.get(CONF_MAC)
         # Entries added with a pasted key are titled by DSN, not a room name.
         self.name = entry.title if entry.title != self.dsn else "Air conditioner"
         self.values: dict[str, Any] = {}

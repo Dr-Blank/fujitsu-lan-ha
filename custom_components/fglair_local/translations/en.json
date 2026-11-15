@@ -363,6 +363,9 @@
           "zone_control": "Zone controller fault"
         }
       },
+      "ip_address": {
+        "name": "IP address"
+      },
       "outdoor_temperature": {
         "name": "Outdoor temperature"
       }

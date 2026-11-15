@@ -11,11 +11,22 @@ from pytest_homeassistant_custom_component.components.diagnostics import (
 from pytest_homeassistant_custom_component.typing import ClientSessionGenerator
 from syrupy.assertion import SnapshotAssertion
 
+from homeassistant.const import CONF_MAC
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 
 from . import SimulatedUnit, advance, read_resource
-from .const import ANSWERED, CALLBACK_HOST, DSN, HOST, LANIP_KEY, UNIT_DATAPOINTS
+from .const import (
+    ANSWERED,
+    CALLBACK_HOST,
+    DSN,
+    ENTRY_DATA,
+    HOST,
+    LANIP_KEY,
+    MAC,
+    UNIT_DATAPOINTS,
+)
+from custom_components.fglair_local.const import DOMAIN
 from custom_components.fglair_local.coordinator import POLL_INTERVAL
 
 # Shaped like what an AP-WF3E reports while off, shortened.
@@ -25,6 +36,14 @@ POLLED = {
     "op_status": 0,
     "monitor1": "65535,65535,0,0,:,65535",
 }
+
+
+@pytest.fixture
+def mock_config_entry() -> MockConfigEntry:
+    """Return an entry for a discovered unit, so its MAC is in the dump to redact."""
+    return MockConfigEntry(
+        domain=DOMAIN, title=DSN, unique_id=DSN, data={**ENTRY_DATA, CONF_MAC: MAC}
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -79,7 +98,7 @@ async def test_diagnostics_hold_no_secrets(
         await get_diagnostics_for_config_entry(hass, hass_client, init_integration)
     )
 
-    for secret in (LANIP_KEY, DSN, HOST, CALLBACK_HOST):
+    for secret in (LANIP_KEY, DSN, HOST, CALLBACK_HOST, MAC):
         assert secret not in dump
 
 

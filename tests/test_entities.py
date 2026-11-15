@@ -1,5 +1,7 @@
 """Snapshot tests for every entity Fujitsu FGLair Local creates."""
 
+from typing import Any
+
 import pytest
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -7,7 +9,7 @@ from pytest_homeassistant_custom_component.common import (
 )
 from syrupy.assertion import SnapshotAssertion
 
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.const import CONF_MAC, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
@@ -17,6 +19,7 @@ from .const import (
     DSN,
     ECONOMY_ENTITY_ID,
     ENTRY_DATA,
+    MAC,
     REFRESH_ENTITY_ID,
     SETTINGS_SUPPORTED,
     UNIT_DATAPOINTS,
@@ -155,6 +158,37 @@ async def test_device_name(
     assert device is not None
     assert device.name == name
     assert hass.states.get(entity_id) is not None
+
+
+@pytest.mark.usefixtures("mock_register")
+@pytest.mark.parametrize(
+    ("data", "connections"),
+    [
+        pytest.param(
+            {**ENTRY_DATA, CONF_MAC: MAC},
+            {(dr.CONNECTION_NETWORK_MAC, MAC)},
+            id="discovered",
+        ),
+        pytest.param(ENTRY_DATA, set(), id="not_discovered"),
+    ],
+)
+async def test_device_connections(
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    data: dict[str, Any],
+    connections: set[tuple[str, str]],
+) -> None:
+    """A MAC seen by DHCP links the unit to its other devices, like the router's."""
+    entry = MockConfigEntry(domain=DOMAIN, title=DSN, unique_id=DSN, data=data)
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    device = device_registry.async_get_device_by_identifier(
+        (DOMAIN, DSN), entry.entry_id
+    )
+    assert device is not None
+    assert device.connections == connections
 
 
 @pytest.mark.parametrize(("name", "entity_id"), NUMERIC_ENTITIES[:2])
