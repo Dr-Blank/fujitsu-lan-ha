@@ -1277,6 +1277,8 @@ async def test_setpoint_saved_in_celsius(
 
     data = await async_mock_restore_state_shutdown_restart(hass)
 
-    extra_data = data.last_states[CLIMATE_ENTITY_ID].extra_data
+    stored_state = data.async_get_stored_state(CLIMATE_ENTITY_ID)
+    assert stored_state is not None
+    extra_data = stored_state.extra_data
     assert extra_data is not None
     assert extra_data.as_dict() == {ATTR_TEMPERATURE: 25.0}

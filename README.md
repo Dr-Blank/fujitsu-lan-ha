@@ -23,7 +23,7 @@ Only Fujitsu units set up in the FGLair app are supported. Other brands' applian
 
 ## Requirements
 
-- Home Assistant 2026.3.0 or newer.
+- Home Assistant 2026.11.0 or newer.
 - The air conditioner and Home Assistant on the same network. The unit opens its own connection back to Home Assistant, and it only connects to addresses on its own subnet.
 - A fixed IP address for the unit. Reserve one for the adapter in your router; see [Give the unit a fixed IP address](docs/faq.md#give-the-unit-a-fixed-ip-address).
 - The unit's LAN key. Setup can fetch it from the FGLair cloud once, or you can paste one you saved earlier.

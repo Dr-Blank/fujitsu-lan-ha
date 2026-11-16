@@ -146,10 +146,10 @@ class FglairLocalClimate(FglairLocalEntity, RestoreEntity, ClimateEntity):
 
     _attr_name = None
     _attr_translation_key = "air_conditioner"
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_target_temperature_step = 0.5
     # The unit reports a setpoint of 0 while off; keep showing the last real one.
-    _attr_target_temperature = DEFAULT_SETPOINT
+    _attr_native_target_temperature = DEFAULT_SETPOINT
 
     def __init__(self, device: FglairLocalDevice) -> None:
         """Initialise."""
@@ -161,20 +161,22 @@ class FglairLocalClimate(FglairLocalEntity, RestoreEntity, ClimateEntity):
         if (extra := await self.async_get_last_extra_data()) is not None and (
             setpoint := extra.as_dict().get(ATTR_TEMPERATURE)
         ) is not None:
-            self._attr_target_temperature = setpoint
+            self._attr_native_target_temperature = setpoint
         self._update_setpoint()
         await super().async_added_to_hass()
 
     @property
     def extra_restore_state_data(self) -> RestoredExtraData:
         """Setpoint in °C; the state attribute is in the user's unit."""
-        return RestoredExtraData({ATTR_TEMPERATURE: self._attr_target_temperature})
+        return RestoredExtraData(
+            {ATTR_TEMPERATURE: self._attr_native_target_temperature}
+        )
 
     def _update_setpoint(self) -> None:
         if (
             setpoint := decode_setpoint(self.device.values.get(ADJUST_TEMPERATURE))
         ) is not None:
-            self._attr_target_temperature = setpoint
+            self._attr_native_target_temperature = setpoint
 
     @callback
     def _handle_device_update(self) -> None:
@@ -293,7 +295,7 @@ class FglairLocalClimate(FglairLocalEntity, RestoreEntity, ClimateEntity):
         return None
 
     @property
-    def current_temperature(self) -> float | None:
+    def native_current_temperature(self) -> float | None:
         """Room temperature."""
         return decode_sensed_temperature(self.device.values.get(DISPLAY_TEMPERATURE))
 
